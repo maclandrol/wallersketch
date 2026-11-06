@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.2 (7 November 2026)
+
+- Assistant: the first tab is now a guided copy and paste for ChatGPT, DeepSeek or Claude in the browser or phone app. One button copies the request and opens the site, another reads the answer from the clipboard.
+- Invalid recipes come with a ready correction message to paste back into the same conversation.
+- DeepSeek can be used with an API key, next to ChatGPT and Claude, with links to each key page.
+- Documentation rewritten for chat users; MCP setup moved to an advanced section with example configurations.
+
 ## 2.0.1 (6 November 2026)
 
 - Windows installer: add the multi-size application icon used by the installer and `.wsketch` file association (the 2.0.0 Windows build failed without it).
