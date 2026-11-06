@@ -1,0 +1,114 @@
+{
+  "name": "wallersketch",
+  "version": "2.0.0",
+  "description": "Design cocktail-table installations in 3D: tables, presentoirs, draped fabrics, glasses and cocktails.",
+  "author": {
+    "name": "maclandrol",
+    "email": "emmanuel.noutahi@hotmail.ca"
+  },
+  "homepage": "https://github.com/maclandrol/wallersketch",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maclandrol/wallersketch.git"
+  },
+  "private": true,
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:prod": "node build.mjs --production",
+    "start": "node build.mjs && electron .",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "pack:mac": "node build.mjs --production && electron-builder --mac dmg zip --arm64 --x64",
+    "pack:win": "node build.mjs --production && electron-builder --win nsis --x64",
+    "pack:linux": "node build.mjs --production && electron-builder --linux AppImage deb --x64",
+    "e2e": "node build.mjs && node scripts/e2e/run.cjs",
+    "bench": "node build.mjs && node scripts/e2e/run.cjs - scripts/bench.cjs",
+    "icon": "node scripts/e2e/run.cjs - scripts/icon.cjs",
+    "docs": "tsx scripts/recipes-doc.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "occt-import-js": "^0.0.23",
+    "openai": "^7.53.0",
+    "three": "^0.181.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/three": "^0.181.0",
+    "electron": "^42.0.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.0",
+    "playwright": "^1.56.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "build": {
+    "appId": "com.maclandrol.wallersketch",
+    "productName": "WallerSketch",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "identity": null,
+      "icon": "resources/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/icon-square.png",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "artifactName": "WallerSketch-${version}-${os}-${arch}.${ext}",
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Graphics",
+      "icon": "resources/icon-square.png",
+      "maintainer": "maclandrol <emmanuel.noutahi@hotmail.ca>",
+      "synopsis": "Cocktail-table installations in 3D"
+    },
+    "fileAssociations": [
+      {
+        "ext": "wsketch",
+        "name": "Composition WallerSketch",
+        "role": "Editor",
+        "icon": "resources/icon"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/occt-import-js/**"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop/mcp.cjs",
+        "to": "mcp.cjs"
+      }
+    ],
+    "publish": null,
+    "dmg": {
+      "title": "WallerSketch"
+    }
+  },
+  "overrides": {
+    "minimatch": "^11.0.5"
+  }
+}
