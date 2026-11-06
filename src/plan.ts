@@ -73,7 +73,7 @@ export function planSVG(state: DocState, date = new Date()): string {
   for (const { n, item, table } of numbered) {
     const pos = table ? (() => { const [a, b] = inTableFrame(item, table); return `à ${cm(a)} cm du bord gauche, ${cm(b)} cm du fond`; })() : '';
     const size = item.shape === 'round' ? `Ø ${cm(item.size[0])} · h ${cm(item.size[1])}` : `${cm(item.size[0])} × ${cm(item.size[2])} · h ${cm(item.size[1])}`;
-    legend.push(`<circle class="tag" cx="${lx + 10}" cy="${ly - 4}" r="10"/><text class="tag-t" x="${lx + 10}" y="${ly}">${n}</text><text x="${lx + 30}" y="${ly}">${esc(item.name)} — ${size} cm</text>`);
+    legend.push(`<circle class="tag" cx="${lx + 10}" cy="${ly - 4}" r="10"/><text class="tag-t" x="${lx + 10}" y="${ly}">${n}</text><text x="${lx + 30}" y="${ly}">${esc(item.name)} : ${size} cm</text>`);
     if (pos) { ly += 18; legend.push(`<text class="muted" x="${lx + 30}" y="${ly}">${pos}</text>`); }
     ly += 26;
   }

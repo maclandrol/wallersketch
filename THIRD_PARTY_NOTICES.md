@@ -7,7 +7,7 @@ The renderer depends on Three.js (MIT), including its official RoomEnvironment, 
 Runtime dependencies bundled with the application:
 
 - Three.js (MIT): https://github.com/mrdoob/three/blob/dev/LICENSE
-- occt-import-js and OpenCascade Technology (LGPL-2.1, with OCCT's exception), used unmodified as a separate WebAssembly module for STEP/IGES import: https://github.com/kovacsv/occt-import-js — its licence texts ship in `node_modules/occt-import-js/dist/`, unpacked in the application package.
+- occt-import-js and OpenCascade Technology (LGPL-2.1, with OCCT's exception), used unmodified as a separate WebAssembly module for STEP/IGES import: https://github.com/kovacsv/occt-import-js. Its licence texts ship in `node_modules/occt-import-js/dist/`, unpacked in the application package.
 - Anthropic TypeScript SDK (Apache-2.0): https://github.com/anthropics/anthropic-sdk-typescript
 - OpenAI Node SDK (Apache-2.0): https://github.com/openai/openai-node
 - Electron: https://github.com/electron/electron/blob/main/LICENSE

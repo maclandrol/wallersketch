@@ -130,7 +130,7 @@ function renderShots() {
   const views = ed.state.views;
   shotList.replaceChildren(...views.map(v => {
     const img = thumbs.get(thumbKey(v));
-    const b = h('button', { type: 'button', class: 'shot', title: `${v.name} — clic droit pour gérer`, onClick: () => { activeView = null; markViews(); ed.showView(v); } },
+    const b = h('button', { type: 'button', class: 'shot', title: `${v.name} (clic droit pour gérer)`, onClick: () => { activeView = null; markViews(); ed.showView(v); } },
       img ? h('img', { src: img, alt: '' }) : h('div', { class: 'noimg' }), h('span', null, v.name));
     b.addEventListener('contextmenu', e => { e.preventDefault(); shotMenu(v, b); });
     return b;
@@ -193,7 +193,7 @@ ed.on(() => {
   redoBtn.disabled = !ed.doc.canRedo;
   renderLeft();
   renderShots();
-  document.title = s.name + ' — WallerSketch';
+  document.title = s.name + ' · WallerSketch';
 });
 
 // ------------------------------------------------------------------ actions

@@ -1,4 +1,4 @@
-# WallerSketch — architecture, decisions and limits
+# WallerSketch: architecture, decisions and limits
 
 WallerSketch 2 is a rewrite of an earlier prototype ("Cocktail Studio" 1.x), whose cloth was a geometric envelope rather than a drape. Its project files (`.cocktail`, format version 1 and 2) still open.
 

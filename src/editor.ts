@@ -324,7 +324,7 @@ export class Editor {
     if (!this.state.items.length) return;
     this.doc.update(s => ({ ...s, items: [] }));
     this.setSelection([]);
-    this.notify('Composition vidée — Annuler pour la retrouver');
+    this.notify('Composition vidée. Annuler pour la retrouver.');
   }
 
   group(ids = this.selection) {

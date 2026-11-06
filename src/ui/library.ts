@@ -88,7 +88,7 @@ export class LibraryPanel {
 
   private card(e: Entry) {
     const thumb = h('div', { class: 'thumb' }, h('div', { class: 'ph' }));
-    const el = h('button', { type: 'button', class: 'card', title: `${e.name} — cliquer pour ajouter, ou glisser dans la scène` },
+    const el = h('button', { type: 'button', class: 'card', title: `${e.name} : cliquer pour ajouter, ou glisser dans la scène` },
       thumb, h('div', { class: 'meta' }, h('div', { class: 'name' }, e.name), h('div', { class: 'sub' }, e.sub)));
     if (e.remove) el.append(button(null, { icon: 'trash', title: 'Retirer de mes objets', class: 'remove', onClick: ev => { ev.stopPropagation(); e.remove!(); } }));
     if (e.preview) thumbnail(e.key, e.preview).then(url => thumb.replaceChildren(h('img', { src: url, alt: '' }))).catch(() => thumb.replaceChildren(icon(ICONS[e.type] ?? 'cube3', 28)));

@@ -15,7 +15,7 @@ test('plan positions come from geometry, in the table frame, including rotation'
   const svg = planSVG({ ...emptyState('Test <&>'), items: [t, r, createItem('sunrise', [2, 0.95, 1])] }, new Date(2026, 10, 6));
   assert.match(svg, /180 × 75 cm · h 75/);
   assert.match(svg, /à 30 cm du bord gauche, 20 cm du fond/);
-  assert.match(svg, /Cube 20 — 20 × 20 · h 20 cm/);
+  assert.match(svg, /Cube 20 : 20 × 20 · h 20 cm/);
   assert.match(svg, /Test &lt;&amp;&gt;/);
   assert.ok(svg.startsWith('<svg') && svg.trimEnd().endsWith('</svg>') && !/<script/i.test(svg));
 });
