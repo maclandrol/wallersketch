@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('native', {
   info: () => ipcRenderer.invoke('app:info'),
   onMenu: fn => ipcRenderer.on('menu', (_e, action) => fn(action)),
   copy: text => ipcRenderer.invoke('clipboard:write', text),
+  paste: () => ipcRenderer.invoke('clipboard:read'),
+  openExternal: url => ipcRenderer.invoke('open:external', url),
   agentInfo: () => ipcRenderer.invoke('agent:info'),
   agentEnable: on => ipcRenderer.invoke('agent:enable', on),
   onAgentRequest: fn => ipcRenderer.on('agent:request', async (_e, req) => {

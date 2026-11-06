@@ -51,6 +51,17 @@ module.exports = async t => {
   t.check(placed.length === 1, 'drink builder creates and places a cocktail' + (placed.length ? '' : ': ' + await t.eval(() => document.querySelector('.toast')?.textContent)));
   t.check(await t.page.locator('.card', { hasText: 'Rose impériale' }).count() === 1, 'the new cocktail is in the library');
 
+  // ChatGPT / DeepSeek in a browser: the answer comes back through the clipboard.
+  await t.page.getByRole('button', { name: 'Assistant' }).click();
+  await t.page.getByRole('button', { name: 'ChatGPT, DeepSeek…' }).click();
+  await t.eval(() => window.native.copy('Voici les recettes :\n```json\n{ "recipes": [{ "kind": "fabric", "name": "Velours bordeaux", "shape": "rect", "width_cm": 300, "depth_cm": 180, "color": "#5b1424", "material": "velvet" }, { "kind": "cocktail", "name": "Mauvais", "glass": "chope", "colors": ["#ff0000"] }] }\n```'));
+  await t.page.getByRole('button', { name: 'Coller la réponse' }).click();
+  t.check(await t.page.locator('.recipe-results .card', { hasText: 'Velours bordeaux' }).count() === 1, 'chat answer pasted from the clipboard is previewed');
+  t.check(await t.page.getByRole('button', { name: 'Copier les corrections pour l’assistant' }).count() === 1, 'invalid recipes offer a correction message for the chat');
+  await t.page.getByRole('button', { name: 'Garder dans la bibliothèque' }).click();
+  await t.page.waitForFunction(() => window.studio.ed.library.entries.some(e => e.name === 'Velours bordeaux'), null, { timeout: 10000 }).catch(() => {});
+  t.check(await t.eval(() => window.studio.ed.library.entries.some(e => e.name === 'Velours bordeaux')), 'pasted fabric kept in the library');
+
   // MCP: a client process talks JSON-RPC to desktop/mcp.cjs, which drives this window.
   await t.eval(() => window.native.agentEnable(true));
   const mcp = spawn(process.execPath, [path.resolve('desktop/mcp.cjs'), '--user-data', t.userData], { stdio: ['pipe', 'pipe', 'inherit'] });

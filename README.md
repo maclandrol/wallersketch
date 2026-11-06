@@ -19,7 +19,7 @@ A desktop app to plan cocktail tables in 3D. A barman friend asked me for it, to
 - Objects sit on whatever is under them and move with it
 - Grids of glasses, and snapping to a 1, 5 or 10 cm grid
 - Drink builder for your own cocktails
-- AI assistant (Claude or ChatGPT) that creates assets from a description or a photo
+- AI assistant (ChatGPT, DeepSeek or Claude) that creates assets from a description or a photo
 - Saved views, presentation mode, PNG export up to 4K
 - Dimensioned SVG plan with riser positions and a packing list
 - Import GLB, OBJ, STL, PLY, 3MF, DAE, FBX, STEP and IGES; export GLB, OBJ and USDZ
@@ -43,7 +43,7 @@ The [user guide](docs/GUIDE.md) (French) covers the whole workflow.
 
 ## AI assistants
 
-The app can use an API key for Claude or OpenAI, or let you copy and paste with any chat assistant. Claude Desktop, Claude Code and Codex can also drive it through the bundled MCP server. Setup is in [docs/AI.md](docs/AI.md), and the asset format is in [docs/RECIPES.md](docs/RECIPES.md).
+Describe what you want and ChatGPT, DeepSeek or Claude prepares the assets. The simplest way works with the free web or phone apps: the app copies the request, you paste it into the chat, then paste the answer back. With an API key the app asks the model directly, and Claude Desktop, Claude Code or Codex can drive it through the bundled MCP server. Setup is in [docs/AI.md](docs/AI.md), the asset format in [docs/RECIPES.md](docs/RECIPES.md).
 
 ## Development
 

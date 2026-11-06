@@ -44,7 +44,22 @@ Les **chevalets** et le **cadre menu** affichent votre propre image : votre cart
 - **Créer un cocktail** : dans la catégorie Cocktails, ou depuis un cocktail sélectionné avec **Enregistrer comme cocktail…**. Choisissez le verre, les couleurs, la garniture et les glaçons ; l'aperçu suit chaque réglage. Le cocktail rejoint **Mes cocktails** et reste disponible dans tous vos projets.
 - **Enregistrer une composition** : sélectionnez une table habillée, puis cliquez sur ☆ dans les propriétés. Elle apparaît dans **Mes objets**.
 - **Importer un modèle 3D ou CAO** : *… → Importer un modèle 3D ou CAO*. Formats acceptés : GLB, glTF, OBJ, STL, PLY, 3MF, DAE, FBX, STEP et IGES. Les fichiers CAO arrivent à leurs vraies dimensions ; les autres sont convertis s'ils sont en centimètres ou en millimètres. Les couleurs se modifient matière par matière.
-- **L'assistant** : bouton **Assistant**. Décrivez ce que vous voulez, par exemple « un présentoir en gradins miroir pour 24 flûtes ». Voir [AI.md](AI.md).
+- **L'assistant** : voir la section suivante.
+
+## Créer avec ChatGPT ou DeepSeek
+
+L'assistant prépare des éléments à partir d'une simple description, par exemple « un bar à champagne doré pour 80 invités, avec une pyramide de coupes et des gradins pour les flûtes ». Un compte gratuit suffit.
+
+1. Cliquez sur **Assistant**, onglet **ChatGPT, DeepSeek…**, et décrivez ce que vous voulez.
+2. Cliquez sur **Copier et ouvrir ChatGPT** (ou DeepSeek). La demande est copiée et le site s'ouvre.
+3. Dans une nouvelle discussion, collez (⌘V ou Ctrl+V) et envoyez.
+4. Copiez toute la réponse avec le bouton « Copier » sous le message.
+5. Revenez dans WallerSketch et cliquez sur **Coller la réponse** : les éléments s'affichent avec un aperçu.
+6. **Garder dans la bibliothèque** les conserve, **Placer dans la scène** les ajoute à la composition.
+
+Si une partie de la réponse n'est pas valable, cliquez sur **Copier les corrections pour l'assistant**, collez ce message dans la même discussion et recommencez à l'étape 4.
+
+Avec une clé API (onglet **Clé API**), WallerSketch interroge directement ChatGPT, DeepSeek ou Claude, sans copier-coller, et accepte une photo. Les détails, y compris les assistants installés sur l'ordinateur, sont dans [AI.md](AI.md).
 
 ## Présenter au client
 

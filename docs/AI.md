@@ -1,46 +1,88 @@
 # Working with AI assistants
 
-WallerSketch does not need an assistant, but it is built so that one can help: describe *"a champagne bar for 80 guests on two round tables, gold and ivory"* and get the presentoirs, cloths, cocktails and arrangement to refine by hand.
+An assistant can prepare assets from a short description, for example *"a gold champagne bar for 80 guests, with a coupe tower and steps for the flutes"*. You then adjust the result by hand like anything else.
 
-Every route ends in the same place: **asset recipes**, a small JSON format described in [RECIPES.md](RECIPES.md). The app validates each recipe (units, limits such as the 50 cm presentoir height, known garnishes and glasses) and reports every problem in plain words, which assistants use to correct themselves. Nothing enters the library or the scene until it validates, and every change made by an assistant can be undone.
+Open the **Assistant** button at the top of the window. There are three ways to use it, from the simplest to the most technical.
 
-## 1. In the app, with an API key
+Whatever the route, the assistant replies with [asset recipes](RECIPES.md), a small JSON format. WallerSketch checks every recipe (sizes, the 50 cm limit on presentoirs, known glasses and garnishes) and shows a preview before anything is added. Everything an assistant adds can be undone.
 
-*Assistant → Décrire.* Choose **Claude (Anthropic)** or **ChatGPT (OpenAI)**, paste your API key once, then describe what you want. You can attach a photo of an installation or a mood board.
+## 1. ChatGPT, DeepSeek or Claude in the browser or the phone app
 
-- The key is encrypted with the operating system's keychain (macOS Keychain, Windows DPAPI, the Linux secret store) and only the desktop process reads it. The app window never sees it and has no network access of its own.
-- What is sent: your description, a compact summary of the open composition, the recipe reference, and the photo if you attached one. Nothing is sent until you click **Créer**.
-- Default models: `claude-opus-5-5` and `gpt-5`. You can type another model name.
-- If recipes come back with problems, the app sends the exact errors back once so the model can fix them, then shows the results with previews. **Garder dans la bibliothèque** keeps them; **Placer dans la scène** keeps and places them.
+This works with free accounts and needs no setup. It is the recommended way.
 
-Claude requests use the Messages API with medium effort, prompt caching on the recipe reference, and server-side fallback if a safety classifier declines.
+1. In the **ChatGPT, DeepSeek…** tab, describe what you want.
+2. Click **Copier et ouvrir ChatGPT** (or DeepSeek, or Claude). The request is copied and the site opens in your browser.
+3. Start a new conversation, paste with ⌘V or Ctrl+V, and send.
+4. When the answer is complete, copy it with the copy button under the message.
+5. Back in WallerSketch, click **Coller la réponse**. The new items appear with previews.
+6. Click **Garder dans la bibliothèque** to keep them, or **Placer dans la scène** to add them to the composition.
 
-## 2. Copy and paste with any chat assistant
+The request already contains the instructions the assistant needs and a summary of your current composition, so you don't have to explain anything else.
 
-*Assistant → Copier-coller.* **Copier la consigne** puts the recipe reference, the current composition and your request on the clipboard. Paste it into ChatGPT, Claude, Gemini or any other chat assistant, copy its whole answer, paste it back and click **Lire la réponse**. This needs no key and works with assistants on the web or on a phone.
+If some recipes are invalid, the app lists the problems and offers **Copier les corrections pour l'assistant**. Paste that message into the same conversation, then copy the new answer and click **Coller la réponse** again.
 
-## 3. Local agents through MCP
+On a phone, use **Copier seulement**, send the text to yourself, and paste it into the app there.
 
-Claude Desktop, Claude Code, Codex and other [Model Context Protocol](https://modelcontextprotocol.io) clients can drive WallerSketch directly: read the scene, create assets, place them, and render a view to look at the result.
+### Optional: a ChatGPT assistant that already knows WallerSketch
 
-1. In *Assistant → Assistants locaux*, turn on **Autoriser les assistants de cet ordinateur**.
-2. Copy the snippet for your client:
-   - **Claude Code**: one `claude mcp add wallersketch …` command to run in a terminal.
-   - **Claude Desktop**: a block for `claude_desktop_config.json` (Settings → Developer → Edit Config), then restart Claude.
-   - **Codex**: a block for `~/.codex/config.toml`.
-3. Ask, for example: *"In WallerSketch, build a champagne bar with a five-level coupe tower and two gold stepped presentoirs of kir royal."*
+If you use ChatGPT often, you can create a custom GPT once so you don't have to send the instructions every time:
 
-The snippet runs the bundled `mcp.cjs` with the app's own runtime, so nothing else needs installing. WallerSketch must be open.
+1. In ChatGPT, go to **Explore GPTs → Create → Configure**.
+2. Name it "WallerSketch" and paste the content of [RECIPES.md](RECIPES.md) into **Instructions**.
+3. Save it. From then on, open this GPT and paste only your request (the copied text still works as is).
+
+DeepSeek has no equivalent, so keep using the copied request there.
+
+## 2. With an API key
+
+In the **Clé API** tab, WallerSketch sends the request itself and reads the answer, so there is no copying. You can also attach a photo of a past installation or a mood board (not with DeepSeek, which doesn't read images).
+
+- Choose **ChatGPT (OpenAI)**, **DeepSeek** or **Claude (Anthropic)**.
+- Create a key on the provider's site (the **Créer une clé** link opens the right page): [OpenAI](https://platform.openai.com/api-keys), [DeepSeek](https://platform.deepseek.com/api_keys), [Anthropic](https://console.anthropic.com/settings/keys).
+- API use is paid per request and is separate from a ChatGPT Plus subscription. A request usually costs a few cents; DeepSeek is the cheapest.
+- Default models: `gpt-5`, `deepseek-chat` and `claude-opus-5-5`. You can type another model name.
+
+What happens to your data:
+- The key is encrypted with the system keychain (macOS Keychain, Windows DPAPI, Linux secret store). Only the desktop process reads it; the app window has no network access.
+- Each request sends your description, a summary of the composition, the recipe instructions and the photo if you attached one. Nothing is sent until you click **Créer**.
+- If recipes come back with problems, the app sends the errors back once so the model can fix them.
+
+## 3. Local agents through MCP (advanced)
+
+This is for assistants installed on the same computer that can drive applications through the [Model Context Protocol](https://modelcontextprotocol.io): Claude Desktop, Claude Code, Codex and similar tools. ChatGPT and DeepSeek in a browser or on a phone cannot connect this way; use route 1 for them.
+
+1. In the **Agents locaux** tab, turn on **Autoriser les assistants de cet ordinateur**.
+2. Copy the configuration shown for your tool. It contains the right paths for your computer:
+   - **Claude Code**: a `claude mcp add wallersketch …` command to run once in a terminal.
+   - **Claude Desktop**: a block to merge into `claude_desktop_config.json` (Settings → Developer → Edit Config), then restart Claude.
+   - **Codex**: a block to add to `~/.codex/config.toml`.
+3. Keep WallerSketch open and ask, for example: *"In WallerSketch, build a champagne bar with a five-level coupe tower and two gold stepped presentoirs of kir royal."*
+
+With the default install location on macOS, the Claude Desktop configuration looks like this:
+
+```json
+{
+  "mcpServers": {
+    "wallersketch": {
+      "command": "/Applications/WallerSketch.app/Contents/MacOS/WallerSketch",
+      "args": ["/Applications/WallerSketch.app/Contents/Resources/mcp.cjs"],
+      "env": { "ELECTRON_RUN_AS_NODE": "1" }
+    }
+  }
+}
+```
+
+On Windows, the command is usually `%LOCALAPPDATA%\Programs\WallerSketch\WallerSketch.exe` and the script `%LOCALAPPDATA%\Programs\WallerSketch\resources\mcp.cjs`. The app shows the exact values for your installation.
 
 | Tool | Purpose |
 |---|---|
-| `get_context` | The recipe reference, the current scene and the personal library. Agents call this first. |
-| `get_scene` | Every object: id, type, position and size in cm, what it stands on. |
-| `create_assets` | Validates recipes and adds them to the library; returns refs or exact problems. |
-| `add_to_scene` | Places a ref or a saved composition, optionally on an object; `count` and `columns` make a grid of glasses. |
+| `get_context` | Recipe instructions, current scene and personal library. Agents call it first. |
+| `get_scene` | Every object with its id, type, position and size in cm, and what it stands on. |
+| `create_assets` | Checks recipes and adds them to the library, or returns the exact problems. |
+| `add_to_scene` | Places an asset or a saved composition, optionally on an object; `count` and `columns` make a grid of glasses. |
 | `update_items` | Size, colour, drink colours, position, rotation, name. |
 | `remove_items` | Deletes objects and what stands on them. |
-| `render_view` | Returns a PNG of a view so the agent can check its work. |
+| `render_view` | Returns an image of a view so the agent can check its work. |
 | `new_scene`, `undo` | Start again, or step back. |
 
-**Security.** The bridge is off by default. When on, it listens only on a socket private to your user account (a `0600` Unix socket on macOS and Linux, a per-user named pipe on Windows), and every request carries a random token stored in your data folder. It exposes only the commands above: no file access, no network.
+The bridge is off by default. When it is on, it only listens on a socket private to your user account (a Unix socket readable only by you on macOS and Linux, a per-user named pipe on Windows), every request must carry a random token stored in your data folder, and it only accepts the commands above: no file access and no network.

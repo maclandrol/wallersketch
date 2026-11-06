@@ -20,7 +20,7 @@ The product targets come from the consolidated specification. These points refin
 | Platforms | Linux (AppImage, .deb) next to macOS and Windows; CI tests all three. | Requested during implementation. |
 | Snapping | Positions snap to a 1, 5 or 10 cm grid in the frame of the support, starting at its corner; Alt drags freely; keyboard nudges stay exact. | Installers measure from table edges. |
 | Luxury presentation | Stepped presentoirs (2–6 steps, cloth follows each step), mirror and brass finishes, sequin cloth, cut crystal, gold rims, a champagne coupe tower, candelabra, ice bucket. | High-end events. |
-| Assistants | One JSON recipe format for every kind of asset, three routes to reach it (in-app API, copy-paste, local MCP). | Works with remote and local agents, and without any. |
+| Assistants | One JSON recipe format for every kind of asset, three routes to reach it (copy-paste with ChatGPT or DeepSeek in the browser, an API key, local MCP agents). | Works with remote and local agents, and without any. |
 | Interchange | Imports convert to GLB once; exports GLB, OBJ, USDZ. STEP/IGES through OpenCascade in a separate process. | Exchange with CAD and Blender; AR on phones. |
 
 ## Architecture
@@ -39,14 +39,14 @@ TypeScript with Three.js 0.181 in an Electron 42 window, bundled by esbuild. The
 | Rendering | `src/render/*` | Viewport, procedural meshes and materials, instanced drinks, thumbnails. |
 | Editor | `src/editor.ts` | Every command. Every command re-seats objects on the surface underneath. |
 | Interface | `src/app.ts`, `src/ui/*` | Shell, library, scene list, inspector, drink builder, assistant panel, dialogs, presentation mode. |
-| Assistants | `src/agent.ts`, `desktop/agent.cjs`, `desktop/mcp.cjs`, `desktop/assistant.cjs` | Command set shared by every assistant route; local socket bridge; stdio MCP server; Claude/OpenAI calls with keychain-encrypted keys. |
+| Assistants | `src/agent.ts`, `desktop/agent.cjs`, `desktop/mcp.cjs`, `desktop/assistant.cjs` | Command set shared by every assistant route; local socket bridge; stdio MCP server; Claude, ChatGPT and DeepSeek API calls with keychain-encrypted keys. |
 | Interchange | `src/render/interchange.ts`, `desktop/cad.cjs` | Format conversion to GLB, 3D export, STEP/IGES in an Electron utility process. |
 | Plan | `src/plan.ts` | SVG plan computed from scene geometry. |
 | Desktop | `desktop/main.cjs`, `preload.cjs`, `persistence.cjs` | Sandboxed window, narrow bridge, atomic writes, import validation, native dialogs and menus. |
 
 ### Security model
 
-The window is sandboxed with context isolation, a strict Content Security Policy (no `eval`) and no network: every outgoing request is blocked. It talks to the desktop only through the commands in `preload.cjs`. Parsing of untrusted CAD files happens in a separate utility process. API keys are encrypted with Electron `safeStorage` and only read in the main process, which is the only part allowed to contact the Anthropic or OpenAI API. The local agent bridge is off by default, private to the user account and token-protected.
+The window is sandboxed with context isolation, a strict Content Security Policy (no `eval`) and no network: every outgoing request is blocked. It talks to the desktop only through the commands in `preload.cjs`. Parsing of untrusted CAD files happens in a separate utility process. API keys are encrypted with Electron `safeStorage` and only read in the main process, which is the only part allowed to contact the Anthropic, OpenAI or DeepSeek API. The local agent bridge is off by default, private to the user account and token-protected.
 
 ### Cloth
 

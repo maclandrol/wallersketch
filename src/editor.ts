@@ -24,15 +24,19 @@ export interface Native {
   saveLibrary(data: string): Promise<void>;
   onMenu(fn: (action: string) => void): void;
   copy(text: string): Promise<void>;
+  paste(): Promise<string>;
+  openExternal(url: string): Promise<void>;
   agentInfo(): Promise<AgentInfo>;
   agentEnable(on: boolean): Promise<boolean>;
   onAgentRequest(fn: (method: string, params: unknown) => Promise<unknown>): void;
   onAgentActivity(fn: (method: string) => void): void;
-  assistantKeys(): Promise<{ anthropic: boolean; openai: boolean; models: Record<string, string>; chosen: { provider?: string; model?: string } }>;
-  assistantSetKey(provider: string, key: string): Promise<{ anthropic: boolean; openai: boolean }>;
+  assistantKeys(): Promise<Record<Provider, boolean> & { models: Record<Provider, string>; chosen: { provider?: Provider; model?: string } }>;
+  assistantSetKey(provider: Provider, key: string): Promise<Record<Provider, boolean>>;
   convertCAD(base64: string, ext: string): Promise<CADMesh[]>;
   assistantAsk(r: { provider: string; model?: string; system: string; messages: { role: 'user' | 'assistant'; text: string; image?: string }[] }): Promise<string>;
 }
+
+export type Provider = 'anthropic' | 'openai' | 'deepseek';
 
 export interface CADMesh { name: string; color: [number, number, number] | null; position: Float32Array; normal: Float32Array | null; index: Uint32Array }
 

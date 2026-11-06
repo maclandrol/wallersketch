@@ -1,16 +1,20 @@
-// Remote assistants (Claude or OpenAI) called from the main process with the operator's own
-// API key. The window never sees the key and has no network access of its own.
+// Remote assistants (Claude, ChatGPT, DeepSeek) called from the main process with the
+// operator's own API key. The window never sees the key and has no network access of its own.
 const fs = require('node:fs');
 const path = require('node:path');
 const {safeStorage} = require('electron');
 
-const DEFAULT_MODELS = {anthropic: 'claude-opus-5-5', openai: 'gpt-5'};
+const PROVIDERS = ['anthropic', 'openai', 'deepseek'];
+const DEFAULT_MODELS = {anthropic: 'claude-opus-5-5', openai: 'gpt-5', deepseek: 'deepseek-chat'};
+// DeepSeek serves an OpenAI-compatible API.
+const BASE_URLS = {deepseek: 'https://api.deepseek.com'};
+const NAMES = {anthropic: 'Claude', openai: 'OpenAI', deepseek: 'DeepSeek'};
 
 class Keys {
   constructor(userData) { this.file = path.join(userData, 'assistant-keys.json'); }
   read() { try { return JSON.parse(fs.readFileSync(this.file, 'utf8')); } catch { return {}; } }
   set(provider, key) {
-    if (!['anthropic', 'openai'].includes(provider)) throw Error('Fournisseur inconnu.');
+    if (!PROVIDERS.includes(provider)) throw Error('Fournisseur inconnu.');
     const all = this.read();
     if (!key) delete all[provider];
     else {
@@ -23,7 +27,7 @@ class Keys {
     const v = this.read()[provider];
     return v ? safeStorage.decryptString(Buffer.from(v, 'base64')) : null;
   }
-  status() { const all = this.read(); return {anthropic: !!all.anthropic, openai: !!all.openai}; }
+  status() { const all = this.read(); return Object.fromEntries(PROVIDERS.map(p => [p, !!all[p]])); }
 }
 
 /**
@@ -32,7 +36,7 @@ class Keys {
  */
 async function ask(keys, {provider, model, system, messages}) {
   const key = keys.get(provider);
-  if (!key) throw Error('Ajoutez une clé API pour ' + (provider === 'anthropic' ? 'Claude' : 'OpenAI') + '.');
+  if (!key) throw Error('Ajoutez une clé API ' + NAMES[provider] + '.');
   if (provider === 'anthropic') {
     const Anthropic = require('@anthropic-ai/sdk').default;
     const client = new Anthropic({apiKey: key});
@@ -58,16 +62,18 @@ async function ask(keys, {provider, model, system, messages}) {
     }
   }
   const OpenAI = require('openai').default;
-  const client = new OpenAI({apiKey: key});
+  const client = new OpenAI({apiKey: key, baseURL: BASE_URLS[provider]});
+  if (provider === 'deepseek' && messages.some(m => m.image)) throw Error('DeepSeek ne lit pas les photos. Retirez la photo ou choisissez Claude ou ChatGPT.');
   try {
     const r = await client.chat.completions.create({
-      model: model || DEFAULT_MODELS.openai,
+      model: model || DEFAULT_MODELS[provider],
       messages: [{role: 'system', content: system}, ...messages.map(m => ({role: m.role, content: openaiContent(m)}))],
     });
     return r.choices[0]?.message?.content ?? '';
   } catch (e) {
-    if (e?.status === 401) throw Error('Clé API OpenAI refusée.');
-    throw Error('Erreur de l’API OpenAI : ' + (e?.message ?? e));
+    if (e?.status === 401) throw Error(`Clé API ${NAMES[provider]} refusée.`);
+    if (e?.status === 402) throw Error(`Crédit ${NAMES[provider]} épuisé : rechargez le compte sur le site du fournisseur.`);
+    throw Error(`Erreur de l’API ${NAMES[provider]} : ` + (e?.message ?? e));
   }
 }
 
@@ -81,4 +87,4 @@ function openaiContent(m) {
   return m.image ? [{type: 'text', text: m.text}, {type: 'image_url', image_url: {url: m.image}}] : m.text;
 }
 
-module.exports = {Keys, ask, DEFAULT_MODELS};
+module.exports = {Keys, ask, DEFAULT_MODELS, PROVIDERS};

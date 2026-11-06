@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const {MAX_PROJECT, MAX_IMPORT, projectText, readBounded, atomicWrite, validateImport, exportBytes, safeName} = require('./persistence.cjs');
 const {AgentServer, connectionInfo} = require('./agent.cjs');
-const {Keys, ask, DEFAULT_MODELS} = require('./assistant.cjs');
+const {Keys, ask, DEFAULT_MODELS, PROVIDERS} = require('./assistant.cjs');
 
 app.setName('WallerSketch');
 if (!app.isPackaged && process.env.WALLERSKETCH_USER_DATA && path.isAbsolute(process.env.WALLERSKETCH_USER_DATA)) {
@@ -206,6 +206,10 @@ app.whenReady().then(async () => {
     cad.postMessage({id, ext, bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)});
   }));
   handle('clipboard:write', text => { if (typeof text === 'string' && text.length < 2_000_000) clipboard.writeText(text); });
+  handle('clipboard:read', () => clipboard.readText().slice(0, 2_000_000));
+  // Only the assistant sites and their API key pages open in the browser.
+  const EXTERNAL = new Set(['chatgpt.com', 'chat.deepseek.com', 'claude.ai', 'platform.openai.com', 'platform.deepseek.com', 'console.anthropic.com']);
+  handle('open:external', url => { const u = new URL(url); if (u.protocol === 'https:' && EXTERNAL.has(u.hostname)) shell.openExternal(u.toString()); });
 
   // Assistants. Local ones (MCP) go through a user-only socket, enabled by the operator.
   const settingsFile = userFile('settings.json');
@@ -237,7 +241,7 @@ app.whenReady().then(async () => {
   handle('assistant:keys', () => ({...keys.status(), models: DEFAULT_MODELS, chosen: settings.assistant ?? {}}));
   handle('assistant:setKey', (provider, key) => { keys.set(provider, key); return keys.status(); });
   handle('assistant:ask', async request => {
-    if (!request || !['anthropic', 'openai'].includes(request.provider) || !Array.isArray(request.messages) || typeof request.system !== 'string') throw Error('Requête invalide.');
+    if (!request || !PROVIDERS.includes(request.provider) || !Array.isArray(request.messages) || typeof request.system !== 'string') throw Error('Requête invalide.');
     settings.assistant = {provider: request.provider, model: request.model || undefined};
     saveSettings();
     return ask(keys, request);
