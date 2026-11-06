@@ -1,6 +1,6 @@
 {
   "name": "wallersketch",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Design cocktail-table installations in 3D: tables, presentoirs, draped fabrics, glasses and cocktails.",
   "author": {
     "name": "maclandrol",
@@ -68,7 +68,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "resources/icon-square.png",
+      "icon": "resources/icon.ico",
       "signExecutable": false
     },
     "nsis": {

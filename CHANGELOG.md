@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1 — 6 November 2026
+
+- Windows installer: add the multi-size application icon used by the installer and `.wsketch` file association (the 2.0.0 Windows build failed without it).
+
 ## 2.0.0 — 6 November 2026
 
 First public release of WallerSketch, a rewrite of the Cocktail Studio prototype.
