@@ -7,6 +7,7 @@ import { GLASSES, customGlasses, glassSize } from '../core/glassware';
 import { openDrinkBuilder } from './drinkBuilder';
 import { fabricCovers, overhang } from '../core/fabric';
 import { gridRows, holdsLiquid, inventory } from '../core/scene';
+import { layerEditor } from './layers';
 import { button, fmtCm, h, menu, numberField, section, segmented, swatches, toggle } from './dom';
 import { icon } from './icons';
 import { kbd } from './platform';
@@ -244,21 +245,14 @@ export class Inspector {
     glassSel.addEventListener('change', () => ed.patch(ids, i => ({ drink: { ...i.drink!, glass: glassSel.value }, size: glassSize(glassSel.value) })));
     const crystal = this.live(toggle('Cristal taillé', () => ed.selected.every(i => i.finish.glass?.texture === 'cut'), v => ed.setFinish(ids, 'glass', { texture: v ? 'cut' : undefined })));
     const out = [section('Verre', h('div', { class: 'stack' }, glassSel, crystal))];
-    if (first.type !== 'cocktail') return out;
-    // Liquid colours from bottom to top; each layer is one colour stop.
-    const layers = h('div', { class: 'stack' });
-    const renderLayers = () => {
-      const d = ed.selected[0]?.drink;
-      if (!d) return;
-      layers.replaceChildren(...d.layers.map((l, k) => {
-        const input = h('input', { type: 'color', value: l.color, class: 'layer-color', title: 'Couleur' });
-        input.addEventListener('input', () => ed.patch(ids, i => ({ drink: { ...i.drink!, layers: i.drink!.layers.map((x, j) => (j === k ? { ...x, color: input.value } : x)) } }), 'layer' + k));
-        input.addEventListener('change', () => ed.doc.seal());
-        return h('label', { class: 'toggle' }, h('span', null, d.layers.length === 1 ? 'Couleur' : k === 0 ? 'Fond du verre' : k === d.layers.length - 1 ? 'Surface' : 'Milieu'), h('span', { class: 'custom-wrap', style: `--c:${l.color}` }, input));
-      }));
-    };
-    renderLayers();
-    this.refreshers.push(() => { if (!layers.contains(document.activeElement)) renderLayers(); });
+    // An empty glass can be filled here, then coloured like any cocktail.
+    if (first.type !== 'cocktail') {
+      out.push(section('Boisson', h('p', { class: 'hint' }, 'Ce verre est vide.'), button(sel.length > 1 ? `Remplir les ${sel.length} verres` : 'Remplir ce verre', { icon: 'cocktail', class: 'outline wide', onClick: () => ed.fillGlasses(ids) })));
+      return out;
+    }
+    // Liquid colours from the surface down to the bottom of the glass.
+    const layers = layerEditor(() => ed.selected[0]?.drink, (fn, live) => ed.patch(ids, i => ({ drink: fn(i.drink!) }), live), () => ed.doc.seal());
+    this.refreshers.push(layers.refresh);
     const fill = h('input', { type: 'range', class: 'slider', min: '20', max: '100', step: '1', value: String(Math.round((first.drink?.fill ?? 0.8) * 100)), 'aria-label': 'Remplissage' });
     fill.addEventListener('input', () => ed.patch(ids, i => ({ drink: { ...i.drink!, fill: +fill.value / 100 } }), 'fill'));
     fill.addEventListener('change', () => ed.doc.seal());
@@ -276,9 +270,11 @@ export class Inspector {
     renderGarnish();
     this.refreshers.push(renderGarnish);
     const ice = this.live(numberField('Glaçons', { unit: '', scale: 1, min: 0, max: 8, get: () => same(ed.selected.map(i => i.drink?.ice ?? 0)), set: (v, live) => ed.patch(ids, i => ({ drink: { ...i.drink!, ice: Math.round(v) } }), live ? 'ice' : undefined) }));
-    out.push(section('Boisson', layers, h('div', { class: 'fill-row' }, h('div', { class: 'field' }, h('span', { class: 'num-label' }, 'Remplissage'), fill), ice)));
+    out.push(section('Boisson', layers.el, h('div', { class: 'fill-row' }, h('div', { class: 'field' }, h('span', { class: 'num-label' }, 'Remplissage'), fill), ice)));
     out.push(section('Garniture', garnish));
-    if (sel.length === 1) out.push(h('div', { class: 'panel-section' }, button('Enregistrer comme cocktail…', { icon: 'mine', class: 'outline wide', onClick: () => openDrinkBuilder(ed, ed.selected[0]) })));
+    out.push(h('div', { class: 'panel-section stack' },
+      sel.length === 1 ? button('Enregistrer comme cocktail…', { icon: 'mine', class: 'outline wide', onClick: () => openDrinkBuilder(ed, ed.selected[0]) }) : null,
+      button(sel.length > 1 ? `Vider les ${sel.length} verres` : 'Vider le verre', { icon: 'glass', class: 'ghost wide', onClick: () => ed.emptyGlasses(ids) })));
     return out;
   }
 

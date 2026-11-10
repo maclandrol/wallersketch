@@ -7,6 +7,12 @@
 - Camera from the keyboard: + and − to zoom, arrows to turn and tilt, Shift and arrows to slide, 0 to frame everything. Space and drag, or a right drag, slides the view; a right click without moving still opens the menu.
 - A shortcuts sheet, opened with ? or from the menus.
 - The selection is drawn over everything else and the rest of the scene fades further. Framing a single glass keeps its neighbours in view.
+- Empty glasses can be filled from the properties, and drinks emptied back to glasses.
+- Drink colours are listed as they sit in the glass, surface first: change, move up or down, remove, or add up to six, in the properties and in the drink builder.
+- Copy, cut and paste objects with ⌘C, ⌘X and ⌘V (Ctrl on Windows and Linux), or from the right-click menu. With a table or presentoir selected, glasses and decor are pasted onto it. Copied objects can be pasted into another window.
+- A drag that starts on the selection always moves all of it, even with the Sélection tool on or Shift held.
+- Faster on tablets and Retina screens: the view draws fewer pixels while it moves and sharpens as soon as it stops, and shadows are only recomputed when objects change.
+- Web app: the AI libraries are downloaded the first time the Assistant uses an API key instead of on the first visit.
 - Web app: new versions are fetched fresh and applied on the next launch (before, an old copy could stay in use). The version number is shown at the bottom of the … menu.
 
 ## 2.2.0 (10 November 2026)

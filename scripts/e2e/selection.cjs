@@ -98,6 +98,46 @@ module.exports = async t => {
   await page.mouse.up();
   t.check(Math.hypot(now[0] - rim[0] - 30, now[1] - rim[1] + 6) < 8, `the dragged glass stays under the pointer (${Math.round(Math.hypot(now[0] - rim[0] - 30, now[1] - rim[1] + 6))} px)`);
 
+  // A selection moves together, even with the Sélection tool on or Shift still held.
+  const sel4 = (await t.items()).filter(i => i.type === 'cocktail').map(i => i.id);
+  for (const [label, setup] of [['with the Sélection tool on', 'tool'], ['with Shift held', 'shift']]) {
+    await t.eval(ids => window.studio.ed.select(ids, 'single'), sel4);
+    if (setup === 'tool') await page.getByRole('button', { name: 'Sélection', exact: true }).click();
+    const lead = (await t.items()).find(i => i.id === sel4[1]);
+    const at = await screen([lead.position[0], lead.position[1] + lead.size[1] * 0.6, lead.position[2]]);
+    const x0 = (await t.items()).filter(i => sel4.includes(i.id)).map(i => i.position[0]);
+    if (setup === 'shift') await page.keyboard.down('Shift');
+    await page.mouse.move(at[0], at[1]); await page.mouse.down(); await page.mouse.move(at[0] + 40, at[1], { steps: 6 }); await page.mouse.up();
+    if (setup === 'shift') await page.keyboard.up('Shift');
+    if (setup === 'tool') await page.getByRole('button', { name: 'Sélection', exact: true }).click();
+    const dx = (await t.items()).filter(i => sel4.includes(i.id)).map((i, k) => i.position[0] - x0[k]);
+    t.check(dx.every(d => Math.abs(d - dx[0]) < 1e-6 && Math.abs(d) > 0.01) && (await t.eval(() => window.studio.ed.selection.length)) === sel4.length, `the selection moves together ${label}`);
+  }
+
+  // Copy and paste with the usual shortcuts, onto a presentoir.
+  await page.locator('main.stage canvas').focus();
+  await t.eval(ids => { const { ed } = window.studio; ed.select(ids, 'single'); ed.startArrange(); ed.arrange(2, 0.01); }, sel4);
+  await page.keyboard.press('ControlOrMeta+c');
+  await t.eval(id => window.studio.ed.select([id]), c30.id);
+  await page.keyboard.press('ControlOrMeta+v');
+  const pasted = (await t.items()).filter(i => i.type === 'cocktail' && !sel4.includes(i.id));
+  t.check(pasted.length === sel4.length && pasted.every(i => i.parentId === c30.id), `pasted ${pasted.length} drinks onto the selected cube`);
+
+  // An empty glass is filled from the properties, then gets a third colour, reordered and removed.
+  const empty = await t.eval(id => { const { ed } = window.studio; ed.select([id]); return ed.add('glass-coupe').id; }, c30.id);
+  await t.openProperties();
+  await page.getByRole('button', { name: 'Remplir ce verre' }).click();
+  const filled = await t.eval(id => window.studio.ed.item(id), empty);
+  t.check(filled.type === 'cocktail' && filled.drink.layers.length === 2 && filled.drink.fill > 0.5, 'the empty coupe is filled');
+  await page.getByRole('button', { name: 'Ajouter une couleur' }).click();
+  t.check((await t.eval(id => window.studio.ed.item(id).drink.layers.length, empty)) === 3, 'a third colour is added');
+  const colours = () => t.eval(id => window.studio.ed.item(id).drink.layers.map(l => l.color), empty);
+  await t.eval(id => window.studio.ed.patch([id], i => ({ drink: { ...i.drink, layers: i.drink.layers.map((l, k) => ({ ...l, color: ['#ff0000', '#00ff00', '#0000ff'][k] })) } })), empty);
+  await page.locator('.layer').first().getByRole('button', { name: 'Descendre' }).click();
+  t.check((await colours()).join() === '#ff0000,#0000ff,#00ff00', 'the surface colour moves down one place');
+  await page.locator('.layer').last().getByRole('button', { name: 'Retirer cette couleur' }).click();
+  t.check((await colours()).join() === '#0000ff,#00ff00', 'the bottom colour is removed');
+
   // Camera from the keyboard, and the shortcuts sheet.
   await page.locator('main.stage canvas').focus();
   const dist = () => t.eval(() => { const v = window.studio.view; return v.camera.position.distanceTo(v.controls.target); });

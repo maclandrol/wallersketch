@@ -32,7 +32,8 @@ WallerSketch sert à composer une table cocktail en 3D, à la présenter au clie
 
 ### Travailler sur plusieurs objets
 
-- **Maj + clic** ajoute un objet à la sélection ou l'en retire.
+- **Maj + clic** ajoute un objet à la sélection ou l'en retire. Faire glisser l'un des objets sélectionnés les déplace tous ensemble.
+- **Copier**, **Couper** et **Coller** (⌘C, ⌘X, ⌘V, ou Ctrl sous Windows et Linux, ou le clic droit) fonctionnent comme partout. Avec une table ou un présentoir sélectionné, les verres et le décor collés se posent dessus ; sinon la copie apparaît à côté de l'original.
 - Pour sélectionner une zone, activez **Sélection** dans la barre du bas puis tracez un cadre, ou faites **Maj + glisser** depuis un endroit vide. Seuls les objets entièrement dans le cadre sont pris : la table sur laquelle ils sont posés reste en dehors.
 - Ce qui est sélectionné reste net, dessiné par-dessus le reste, et la scène s'estompe autour : un verre sélectionné au milieu des autres se repère tout de suite.
 - **Ranger** met les objets sélectionnés en ligne, ou en grille avec le nombre par rangée et l'écart de votre choix. Le rangement reste centré là où se trouvaient les objets et se règle en direct ; une seule annulation le défait.
@@ -47,7 +48,9 @@ Sélectionnez un objet pour changer :
 - la texture : bois ou marbre ;
 - l'éclairage intérieur des socles en acrylique.
 
-Les cocktails ont leurs couleurs du fond à la surface, le remplissage, les glaçons, la garniture et l'option **Cristal taillé**.
+Les cocktails ont leurs couleurs, listées comme dans le verre : la surface en haut, le fond du verre en bas. Chaque couleur se change, monte ou descend d'un cran, ou se retire ; **Ajouter une couleur** en ajoute une (six au plus) et **Couches nettes** sépare les couleurs au lieu de les fondre. S'y ajoutent le remplissage, les glaçons, la garniture et l'option **Cristal taillé**.
+
+Un **verre vide** se remplit depuis ses propriétés avec **Remplir ce verre**, puis se colore comme un cocktail. **Vider le verre** fait l'inverse.
 
 Les **chevalets** et le **cadre menu** affichent votre propre image : votre carte, ou le nom d'un cocktail.
 
@@ -129,6 +132,7 @@ Deux fonctions restent réservées à l'ordinateur : l'import de fichiers CAO ST
 | Action | macOS | Windows / Linux |
 |---|---|---|
 | Annuler / rétablir | ⌘Z / ⇧⌘Z | Ctrl+Z / Ctrl+Y |
+| Copier / couper / coller | ⌘C / ⌘X / ⌘V | Ctrl+C / Ctrl+X / Ctrl+V |
 | Dupliquer | ⌘D | Ctrl+D |
 | Grouper / dégrouper | ⌘G / ⇧⌘G | Ctrl+G / Ctrl+Maj+G |
 | Enregistrer | ⌘S | Ctrl+S |

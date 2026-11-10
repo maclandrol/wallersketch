@@ -368,3 +368,11 @@ html.web, .web body { touch-action: manipulation; overscroll-behavior: none; }
 .shortcuts dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
 .shortcuts dt { color: var(--text); white-space: nowrap; }
 .shortcuts dd { margin: 0; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Liquid colours, surface first: colour, name, up, down, remove. */
+.layers { display: flex; flex-direction: column; gap: 2px; }
+.layer { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.layer .layer-name { flex: 1; font-size: 13px; }
+.layer .btn.small.icon-only { width: 26px; height: 26px; }
+.layer .btn:disabled { opacity: .25; }
+.layers > .btn { align-self: flex-start; margin-top: 4px; }

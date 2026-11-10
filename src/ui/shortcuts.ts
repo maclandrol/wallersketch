@@ -26,6 +26,7 @@ const SECTIONS: [string, [string, string][]][] = [
     ['Déplacer sans aimant', `${kbd('Alt+')}glisser`],
     ['Décaler de 1 cm, 10 cm', `← → ↑ ↓, ${kbd('Shift+')}flèches`],
     ['Pivoter de 15°', 'R, Maj+R'],
+    ['Copier, couper, coller', `${kbd('Mod+C')}, ${kbd('Mod+X')}, ${kbd('Mod+V')}`],
     ['Dupliquer', kbd('Mod+D')],
     ['Grouper, dégrouper', `${kbd('Mod+G')}, ${kbd('Mod+Shift+G')}`],
     ['Supprimer', DEL],

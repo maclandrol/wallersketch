@@ -2,6 +2,7 @@
 // is undoable and objects are always re-seated on the surfaces under them.
 import type { Arrangement, CameraView, DocState, EmbeddedAsset, Finish, Item, SceneSettings, Vec3 } from './core/types';
 import { Document, emptyState } from './core/document';
+import { glassProfile } from './core/glassware';
 import { clampSize, createItem, duplicateItems, expandGroups, footprintContains, gridPositions, holdsLiquid, isSupport, newId, removeItems, selectionCentre, transformItems, withDescendants, type GridSpec } from './core/scene';
 import { glassFromData, parseProject, serialise } from './core/project';
 import { catalogEntry, registerEntry, unregisterEntry, type CatalogEntry } from './core/catalog';
@@ -397,6 +398,61 @@ export class Editor {
     this.setSelection(copyRoots.map(c => c.id));
   }
 
+  // ------------------------------------------------------------------ clipboard
+
+  /** Last copied objects, also offered to the system clipboard as JSON (other windows, the web). */
+  private clipboard: Item[] = [];
+  private pasteCount = 0;
+
+  /** Copy the selection (with what stands on it); `cut` removes it afterwards. Returns the JSON. */
+  copy(cut = false): string | null {
+    const ids = [...new Set(this.selection.map(id => { const i = this.item(id); return i?.type === 'fabric' && i.parentId && this.item(i.parentId)?.type === 'table' ? i.parentId : id; }))];
+    const roots = this.roots(ids);
+    if (!roots.length) return null;
+    const set = withDescendants(this.state.items, roots);
+    this.clipboard = structuredClone(this.state.items.filter(i => set.has(i.id)));
+    this.pasteCount = cut ? -1 : 0;
+    const n = this.clipboard.length;
+    if (cut) this.remove(roots);
+    this.notify(`${n} objet${n > 1 ? 's' : ''} ${cut ? 'coupé' : 'copié'}${n > 1 ? 's' : ''}`);
+    return JSON.stringify({ wallersketch: 1, items: this.clipboard });
+  }
+
+  /** Clipboard text holding WallerSketch objects, or null. */
+  static readClipboard(text: string): Item[] | null {
+    try { const d = JSON.parse(text); return d?.wallersketch === 1 && Array.isArray(d.items) ? d.items : null; } catch { return null; }
+  }
+
+  get canPaste() { return this.clipboard.length > 0; }
+
+  /**
+   * Paste copied objects. With a table or presentoir selected, glasses and decor land on it;
+   * otherwise copies go beside the originals, a little further at each paste.
+   */
+  paste(from?: Item[]) {
+    if (from) { if (JSON.stringify(from) !== JSON.stringify(this.clipboard)) this.pasteCount = 0; this.clipboard = structuredClone(from); }
+    const items = this.clipboard.filter(i => i.type !== 'model' || this.doc.assets.has(i.ref));
+    if (!items.length) return;
+    const ids = new Set(items.map(i => i.id));
+    const roots = items.filter(i => !i.parentId || !ids.has(i.parentId));
+    const target = this.selected.length === 1 && isSupport(this.selected[0]) && !roots.some(i => i.type === 'table') ? this.selected[0] : undefined;
+    let offset: Vec3;
+    if (target) {
+      const cx = roots.reduce((a, i) => a + i.position[0], 0) / roots.length, cz = roots.reduce((a, i) => a + i.position[2], 0) / roots.length;
+      offset = [target.position[0] - cx, target.position[1] + target.size[1] - Math.min(...roots.map(i => i.position[1])), target.position[2] - cz];
+    } else {
+      this.pasteCount++;
+      const step = roots.some(i => i.type === 'table') ? 0.6 : 0.05;
+      offset = [step * this.pasteCount, 0, step * this.pasteCount];
+    }
+    const copies = duplicateItems(items, roots.map(i => i.id), offset);
+    // Roots no longer stand on what they stood on in the source: settling finds their support.
+    for (const c of copies) if (c.parentId && !copies.some(o => o.id === c.parentId) && !this.item(c.parentId)) c.parentId = undefined;
+    this.doc.update(s => ({ ...s, items: this.settle([...s.items, ...copies], copies.map(c => c.id)) }));
+    const copyRoots = copies.filter(c => !c.parentId || !copies.some(o => o.id === c.parentId));
+    this.setSelection(copyRoots.map(c => c.id));
+  }
+
   // ------------------------------------------------------------------ selection helpers
 
   /** Everything identical to the selection: same catalogue entry and, for drinks, same recipe. */
@@ -500,6 +556,22 @@ export class Editor {
       deltas.set(i.id, f.toWorld(x - lx, z - lz));
     });
     this.moveEach(deltas, merge);
+  }
+
+  /** Pour a drink into empty glasses: two colours to start from, then edited like any cocktail. */
+  fillGlasses(ids = this.selection) {
+    this.patch(ids, i => (i.type !== 'glass' ? {} : {
+      type: 'cocktail', name: `Cocktail en ${glassProfile(i.drink!.glass).name.toLowerCase()}`,
+      drink: { ...i.drink!, fill: 0.85, layers: [{ color: '#f2a516', at: 0 }, { color: '#f7c74a', at: 1 }], garnish: [], ice: 0 },
+    }));
+  }
+
+  /** Back to empty glasses, in the same places. */
+  emptyGlasses(ids = this.selection) {
+    this.patch(ids, i => (i.type !== 'cocktail' ? {} : {
+      type: 'glass', ref: 'glass-' + i.drink!.glass, name: glassProfile(i.drink!.glass).name,
+      drink: { glass: i.drink!.glass, fill: 0, layers: [], garnish: [] },
+    }));
   }
 
   /** Swap the selected glasses or cocktails for another one, keeping their places. */

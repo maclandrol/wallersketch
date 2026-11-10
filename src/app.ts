@@ -220,6 +220,9 @@ function contextMenu(id: string | null, x: number, y: number) {
   if (id && !ed.selection.includes(id)) ed.select([id]);
   const has = ed.selection.length > 0;
   menu({ x, y }, has ? [
+    { label: 'Copier', icon: 'copy', kbd: kbd('Mod+C'), run: () => { const j = ed.copy(); if (j) window.native.copy(j).catch(() => {}); } },
+    { label: 'Couper', icon: 'cut', kbd: kbd('Mod+X'), run: () => { const j = ed.copy(true); if (j) window.native.copy(j).catch(() => {}); } },
+    { label: 'Coller', icon: 'paste', kbd: kbd('Mod+V'), disabled: !ed.canPaste, run: () => ed.paste() },
     { label: 'Dupliquer', icon: 'duplicate', kbd: kbd('Mod+D'), run: () => ed.duplicate() },
     { label: 'Pivoter de 90°', icon: 'rotate', kbd: 'R', run: () => ed.rotate(ed.selection, -Math.PI / 2) },
     { label: ed.selected.some(i => i.groupId) ? 'Dégrouper' : 'Grouper', icon: 'group', disabled: ed.selection.length < 2 && !ed.selected.some(i => i.groupId), run: () => (ed.selected.some(i => i.groupId) ? ed.ungroup() : ed.group()) },
@@ -235,6 +238,7 @@ function contextMenu(id: string | null, x: number, y: number) {
     'sep',
     { label: 'Supprimer', icon: 'trash', danger: true, kbd: isMac ? '⌫' : 'Suppr', run: () => ed.remove() },
   ] : [
+    ...(ed.canPaste ? [{ label: 'Coller', icon: 'paste', kbd: kbd('Mod+V'), run: () => ed.paste() }, 'sep' as const] : []),
     { label: 'Tout sélectionner', icon: 'select', kbd: kbd('Mod+A'), disabled: !ed.state.items.length, run: () => ed.select(ed.state.items.map(i => i.id), 'single') },
     { label: 'Mémoriser ce point de vue', icon: 'camera', run: () => ed.addView() },
     { label: 'Tout cadrer', icon: 'frame', kbd: 'F', run: () => view.frame(activeView ?? 'perspective') },
@@ -417,6 +421,21 @@ addEventListener('pointermove', () => {
   presentBar.classList.remove('idle');
   clearTimeout(idleTimer);
   idleTimer = window.setTimeout(() => presentBar.classList.add('idle'), 2500);
+});
+
+// ------------------------------------------------------------------ clipboard
+// ⌘C, ⌘X and ⌘V (and the Edit menu, whose items fire these events) copy objects when no text
+// field has the focus. The objects also go to the system clipboard as JSON, so they can be
+// pasted into another window or project.
+const inField = () => isTyping() || !!getSelection()?.toString();
+addEventListener('copy', e => { if (inField() || !ed.selection.length) return; const json = ed.copy(); if (json) { e.clipboardData?.setData('text/plain', json); e.preventDefault(); } });
+addEventListener('cut', e => { if (inField() || !ed.selection.length) return; const json = ed.copy(true); if (json) { e.clipboardData?.setData('text/plain', json); e.preventDefault(); } });
+addEventListener('paste', e => {
+  if (isTyping()) return;
+  const items = Editor.readClipboard(e.clipboardData?.getData('text/plain') ?? '');
+  if (!items && !ed.canPaste) return;
+  e.preventDefault();
+  ed.paste(items ?? undefined);
 });
 
 // ------------------------------------------------------------------ keyboard

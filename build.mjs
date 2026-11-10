@@ -50,14 +50,20 @@ if (!web) {
   await walk(out);
   const hash = createHash('sha256');
   for (const f of files.sort()) hash.update(f).update(await readFile(f));
-  const list = ['./', ...files.map(f => './' + path.relative(out, f).split(path.sep).join('/'))];
+  // The AI provider libraries (about 800 KB) are only needed for the Assistant with an API key:
+  // they are fetched and cached the first time they are used, not on the first visit.
+  const lazy = f => /chunks\/(openai|sdk)-/.test(f);
+  const list = ['./', ...files.map(f => './' + path.relative(out, f).split(path.sep).join('/')).filter(f => !lazy(f))];
   await writeFile(path.join(out, 'sw.js'), `const CACHE = 'wallersketch-${hash.digest('hex').slice(0, 12)}';
 const FILES = ${JSON.stringify(list)};
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request)));
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request).then(res => {
+    if (res.ok && new URL(e.request.url).pathname.includes('/chunks/')) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+    return res;
+  })));
 });
 `);
 }

@@ -35,6 +35,7 @@ const P: Record<string, string> = {
   import: 'M10 13V3M6 9l4 4 4-4M4 13v3h12v-3',
   eye: 'M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10zM10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   chevron: 'M7 8l3 3 3-3',
+  chevronUp: 'M7 12l3-3 3 3',
   chevronRight: 'M8 6l4 4-4 4',
   left: 'M12 5l-5 5 5 5',
   right: 'M8 5l5 5-5 5',
@@ -52,6 +53,9 @@ const P: Record<string, string> = {
   align: 'M3 3v14M6 5h9v3H6zM6 12h6v3H6z',
   swap: 'M4 7h11l-3-3M16 13H5l3 3',
   select: 'M4 3l11 6-5 1.5L8 16z',
+  copy: 'M7 7h9v9H7zM4 13V4h9',
+  cut: 'M6.5 16a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM13.5 16a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM8 12.5L14.5 3M12 12.5L5.5 3',
+  paste: 'M7 4h6v2.5H7zM5.5 5H4v12h12V5h-1.5M7.5 10.5h5M7.5 13.5h5',
   keyboard: 'M2.5 5.5h15v9h-15zM5.5 8.5h.01M8.5 8.5h.01M11.5 8.5h.01M14.5 8.5h.01M6.5 11.5h7',
 };
 

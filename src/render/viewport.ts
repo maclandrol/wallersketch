@@ -85,7 +85,7 @@ export class Viewport {
   private ghost = new THREE.Group();
   private ghostMat = new THREE.MeshBasicMaterial({ color: '#1f6feb', transparent: true, opacity: 0.28, depthWrite: false });
   private ring: THREE.Group;
-  private pointer?: { id: number; x: number; y: number; mode: 'pending' | 'move' | 'rotate' | 'orbit' | 'box'; ids: string[]; anchor: THREE.Vector3; plane: THREE.Plane; last: Vec3; start: number; pivot: Vec3; startAngle: number; lastYaw: number; additive: boolean };
+  private pointer?: { id: number; x: number; y: number; mode: 'pending' | 'move' | 'rotate' | 'orbit' | 'box'; ids: string[]; anchor: THREE.Vector3; plane: THREE.Plane; last: Vec3; start: number; pivot: Vec3; startAngle: number; lastYaw: number; additive: boolean; toggle?: string };
   private anim?: { from: [THREE.Vector3, THREE.Vector3]; to: [THREE.Vector3, THREE.Vector3]; t0: number; ms: number };
   private size = { w: 1, h: 1 };
   helpersVisible = true;
@@ -96,7 +96,9 @@ export class Viewport {
 
   constructor(private host: HTMLElement, private events: ViewportEvents) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    this.renderer.setPixelRatio(this.fullRatio);
+    // Shadows depend on the objects and the light, not on the camera: redrawn only when those change.
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     // Neutral studio colour until a composition (and its background) is loaded.
     this.renderer.setClearColor('#ece9e3');
@@ -154,6 +156,25 @@ export class Viewport {
 
   invalidate() { this.needsRender = true; }
 
+  /**
+   * Full sharpness when the view is still; fewer pixels while it moves (orbit, drag, camera
+   * animation), which is what keeps a Retina tablet smooth. One sharp frame follows each move.
+   */
+  private fullRatio = Math.min(2, window.devicePixelRatio);
+  private moveRatio = Math.min(this.fullRatio, this.coarse ? 1 : 1.25);
+  private lastMotion = 0;
+  private shadowsDirty = true;
+  private adaptResolution(moving: boolean) {
+    const r = this.renderer, now = performance.now();
+    if (moving) {
+      this.lastMotion = now;
+      if (r.getPixelRatio() !== this.moveRatio) r.setPixelRatio(this.moveRatio);
+    } else if (r.getPixelRatio() !== this.fullRatio && now - this.lastMotion > 160) {
+      r.setPixelRatio(this.fullRatio);
+      this.needsRender = true;
+    }
+  }
+
   private resize() {
     const w = Math.max(1, this.host.clientWidth), h = Math.max(1, this.host.clientHeight);
     this.size = { w, h };
@@ -173,7 +194,9 @@ export class Viewport {
       if (t >= 1) this.anim = undefined;
       this.needsRender = true;
     }
-    if (this.controls.update()) this.needsRender = true;
+    const orbiting = this.controls.update();
+    if (orbiting) this.needsRender = true;
+    this.adaptResolution(orbiting || !!this.anim || this.pointer?.mode === 'move' || this.pointer?.mode === 'rotate');
     if (!this.needsRender) return;
     this.needsRender = false;
     // Fog only blends the far floor into the background, whatever the camera distance.
@@ -242,13 +265,12 @@ export class Viewport {
    */
   private render() {
     const r = this.renderer;
+    if (this.shadowsDirty) { r.shadowMap.needsUpdate = true; this.shadowsDirty = false; }
     r.render(this.scene, this.camera);
     if (!this.focusSelection || !this.helpersVisible || !this.selection.length || !this.state) return;
     this.updateFocus();
     (this.veil.material as THREE.MeshBasicMaterial).color.copy((this.scene.background as THREE.Color | null) ?? new THREE.Color('#ece9e3'));
-    const shadows = r.shadowMap.autoUpdate;
     r.autoClear = false;
-    r.shadowMap.autoUpdate = false;
     r.render(this.veil, this.veilCamera);
     r.clearDepth();
     // A colour background forces a clear in Three.js: remove it (and fog) for the focus pass.
@@ -261,7 +283,6 @@ export class Viewport {
     this.scene.fog = fog;
     this.scene.background = background;
     r.autoClear = true;
-    r.shadowMap.autoUpdate = shadows;
   }
 
   /** Put the selected objects on layer 1; drinks are instanced, so they get plain copies there. */
@@ -295,6 +316,7 @@ export class Viewport {
 
   /** Bring the view up to date. `partial` skips fabric and shadow work for intermediate states. */
   sync(state: DocState, partial = false) {
+    this.shadowsDirty = true;
     const prev = this.state;
     this.state = state;
     if (!prev || prev.scene !== state.scene) this.applyScene(state.scene);
@@ -458,6 +480,7 @@ export class Viewport {
   }
 
   private onDrape(msg: { fabric: string; key: string; result?: DrapeResult; error?: string }) {
+    this.shadowsDirty = true;
     this.pendingDrape.delete(msg.fabric);
     const key = msg.key;
     if (msg.result) {
@@ -547,6 +570,7 @@ export class Viewport {
   // ------------------------------------------------------------------ scene look
 
   private applyScene(s: SceneSettings) {
+    this.shadowsDirty = true;
     const a = AMBIANCES[s.ambiance];
     const bg = new THREE.Color(s.background);
     this.scene.background = bg;
@@ -560,6 +584,7 @@ export class Viewport {
   }
 
   private fitShadows() {
+    this.shadowsDirty = true;
     const b = this.contentBounds();
     const c = b.isEmpty() ? new THREE.Vector3(0, 0.5, 0) : b.getCenter(new THREE.Vector3());
     const r = b.isEmpty() ? 2 : Math.max(1.5, b.getSize(new THREE.Vector3()).length() / 2 + 0.3);
@@ -939,9 +964,12 @@ export class Viewport {
       }
       const id = this.itemAt(e.clientX, e.clientY);
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-      // With the selection tool on, every drag draws a box (in a dense display almost every
+      // A drag that starts on the selection always moves all of it, whatever the tool or
+      // modifier; a click on it with Shift (no drag) still removes that object.
+      const onSelection = !!id && this.selection.includes(id) && !e.altKey;
+      // With the selection tool on, a drag elsewhere draws a box (in a dense display almost every
       // point is on a glass); a tap without moving still selects what is under it.
-      if (this.boxTool) {
+      if (this.boxTool && !onSelection) {
         this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'box', ids: id ? [id] : [], anchor: new THREE.Vector3(), plane: new THREE.Plane(), last: [0, 0, 0], start: performance.now(), pivot: [0, 0, 0], startAngle: 0, lastYaw: 0, additive };
         this.controls.enabled = false;
         grabPointer(el, e.pointerId);
@@ -953,11 +981,12 @@ export class Viewport {
         if (box) { this.controls.enabled = false; grabPointer(el, e.pointerId); }
         return;
       }
-      if (!this.selection.includes(id) || additive || e.altKey) this.events.select([id], additive ? 'toggle' : e.altKey ? 'single' : 'replace');
+      if (additive && !onSelection) { this.events.select([id], 'toggle'); return; }
+      if (!onSelection) this.events.select([id], e.altKey ? 'single' : 'replace');
       let ids = this.selection.filter(s => !this.entries.get(s)?.item.locked);
       // The grabbed object leads the drag (its surface and its snapping).
       if (ids.includes(id)) ids = [id, ...ids.filter(s => s !== id)];
-      if (!ids.length || additive) return;
+      if (!ids.length) { if (additive) this.events.select([id], 'toggle'); return; }
       // A cloth lying on a table drags the whole dressed table; Alt moves the cloth alone.
       if (!e.altKey) ids = [...new Set(ids.map(s => { const it = this.entries.get(s)?.item; return it?.type === 'fabric' && it.parentId && !this.entries.get(it.parentId)?.item.locked ? it.parentId : s; }))];
       // Grab point on a horizontal plane through the hit, so the object follows the cursor exactly.
@@ -967,7 +996,7 @@ export class Viewport {
       // Objects follow the surface under the cursor, so the grab offset is measured at the height
       // they stand on: grabbing a glass by its rim must not make it jump behind the pointer.
       const planeY = e0.item.type === 'table' ? (hit?.point.y ?? 0) : e0.item.position[1];
-      this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'pending', ids, anchor, plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY), last: [0, 0, 0], start: performance.now(), pivot: [0, 0, 0], startAngle: 0, lastYaw: 0, additive };
+      this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'pending', ids, anchor, plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY), last: [0, 0, 0], start: performance.now(), pivot: [0, 0, 0], startAngle: 0, lastYaw: 0, additive, toggle: additive ? id : undefined };
       const grab = new THREE.Vector3();
       this.ray.ray.intersectPlane(this.pointer.plane, grab);
       this.pointer.anchor.sub(grab);
@@ -999,6 +1028,7 @@ export class Viewport {
         else this.finishMarquee(p.x, p.y, e.clientX, e.clientY, p.additive);
       }
       else if (p.mode === 'orbit' && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 4 && !p.additive) this.events.select([], 'replace');
+      else if (p.mode === 'pending' && p.toggle) this.events.select([p.toggle], 'toggle');
       this.invalidate();
     };
     el.addEventListener('pointerup', end);
