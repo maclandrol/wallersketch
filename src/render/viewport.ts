@@ -95,7 +95,11 @@ export class Viewport {
   private coarse = matchMedia('(pointer: coarse)').matches;
 
   constructor(private host: HTMLElement, private events: ViewportEvents) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+    // Retina screens already have twice the pixels: multisampling on top of that costs a lot of
+    // GPU time for an edge quality nobody sees.
+    this.renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 1.5, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+    // The drinks refract what is behind them: that background is blurry anyway, half size is plenty.
+    this.renderer.transmissionResolutionScale = 0.5;
     this.renderer.setPixelRatio(this.fullRatio);
     // Shadows depend on the objects and the light, not on the camera: redrawn only when those change.
     this.renderer.shadowMap.autoUpdate = false;
@@ -160,7 +164,7 @@ export class Viewport {
    * Full sharpness when the view is still; fewer pixels while it moves (orbit, drag, camera
    * animation), which is what keeps a Retina tablet smooth. One sharp frame follows each move.
    */
-  private fullRatio = Math.min(2, window.devicePixelRatio);
+  private fullRatio = Math.min(this.coarse ? 1.6 : 2, window.devicePixelRatio);
   private moveRatio = Math.min(this.fullRatio, this.coarse ? 1 : 1.25);
   private lastMotion = 0;
   private shadowsDirty = true;
@@ -253,8 +257,9 @@ export class Viewport {
 
   /** Fade the rest of the scene while something is selected (the composition stays readable). */
   focusSelection = true;
-  private veil = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.62, depthTest: false, depthWrite: false }));
+  private veil = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.4, depthTest: false, depthWrite: false }));
   private veilCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  private veilGrey = new THREE.Color('#9a9894');
   private focusDrinks = new THREE.Group();
   private focusKey: unknown[] = [];
   private focused = new Set<THREE.Object3D>();
@@ -269,7 +274,8 @@ export class Viewport {
     r.render(this.scene, this.camera);
     if (!this.focusSelection || !this.helpersVisible || !this.selection.length || !this.state) return;
     this.updateFocus();
-    (this.veil.material as THREE.MeshBasicMaterial).color.copy((this.scene.background as THREE.Color | null) ?? new THREE.Color('#ece9e3'));
+    // A light grey wash in the background's tone: the rest stays readable, just set back.
+    (this.veil.material as THREE.MeshBasicMaterial).color.copy((this.scene.background as THREE.Color | null) ?? new THREE.Color('#ece9e3')).lerp(this.veilGrey, 0.35);
     r.autoClear = false;
     r.render(this.veil, this.veilCamera);
     r.clearDepth();

@@ -186,13 +186,15 @@ export function modal(title: string, body: Node, actions: HTMLElement[], opts: {
 }
 
 let toastTimer = 0;
-export function toast(text: string, kind: 'error' | 'ok' | 'info' = 'info') {
+/** A short message at the bottom; `action` adds a button (Annuler after a deletion). */
+export function toast(text: string, kind: 'error' | 'ok' | 'info' = 'info', action?: { label: string; run: () => void }) {
   let el = document.querySelector('.toast') as HTMLElement | null;
   if (!el) { el = h('div', { class: 'toast', role: 'status', 'aria-live': 'polite' }); document.body.append(el); }
-  el.textContent = text;
-  el.className = 'toast show ' + kind;
+  const hide = () => el!.classList.remove('show');
+  el.replaceChildren(h('span', null, text), action ? h('button', { type: 'button', class: 'toast-action', onClick: () => { hide(); action.run(); } }, action.label) : '');
+  el.className = 'toast show ' + kind + (action ? ' has-action' : '');
   clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => el!.classList.remove('show'), kind === 'error' ? 6000 : 2600);
+  toastTimer = window.setTimeout(hide, kind === 'error' ? 6000 : action ? 6000 : 2600);
 }
 
 export const isTyping = () => { const a = document.activeElement as HTMLElement | null; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable); };

@@ -17,6 +17,7 @@ import { openAssistant } from './ui/assistant';
 import { openDrinkBuilder } from './ui/drinkBuilder';
 import { openArrange, selectionBar } from './ui/selectionBar';
 import { shortcutsSheet } from './ui/shortcuts';
+import { hintBar } from './ui/hints';
 
 declare global { interface Window { native: Native; studio: unknown } }
 
@@ -57,6 +58,7 @@ const view = new Viewport(stage, {
   contextMenu: (id, x, y) => contextMenu(id, x, y),
 });
 ed = new Editor(view, window.native, (m, kind) => toast(m, kind));
+ed.offerUndo = msg => toast(msg, 'info', { label: 'Annuler', run: () => ed.undo() });
 const agent = new AgentBridge(ed);
 window.native?.onAgentRequest((method, params) => agent.handle(method, params));
 // Exposed for the end-to-end checks and debugging from the developer console.
@@ -100,6 +102,7 @@ function fileMenu(anchor: HTMLElement) {
     { label: 'Créer un cocktail…', icon: 'cocktail', run: () => openDrinkBuilder(ed) },
     'sep',
     { label: 'Raccourcis clavier', icon: 'keyboard', kbd: '?', run: () => shortcutsSheet() },
+    { label: 'Aides en bas de la vue', icon: hints.hintsOn() ? 'check' : undefined, run: () => hints.setHints(!hints.hintsOn()) },
     'sep',
     { label: 'Vider la composition…', icon: 'trash', danger: true, disabled: !ed.state.items.length, run: () => confirmClear() },
     'sep',
@@ -152,6 +155,8 @@ snapLabel();
 const boxBtn = button('Sélection', { icon: 'marquee', title: 'Sélectionner en traçant un cadre (ou Maj + glisser)', onClick: () => { view.boxTool = !view.boxTool; boxBtn.classList.toggle('on', view.boxTool); stage.classList.toggle('box-tool', view.boxTool); } });
 viewsBar.append(h('div', { class: 'sep' }), boxBtn, snapBtn, h('div', { class: 'sep' }), button('Cadrer', { icon: 'frame', title: 'Cadrer la sélection ou tout (F)', onClick: () => ed.frameView((activeView ?? 'perspective')) }));
 stage.append(viewsBar);
+const hints = hintBar(ed);
+stage.append(hints);
 const selBar = selectionBar(ed, () => ed.frameView(activeView ?? 'perspective'));
 stage.append(selBar);
 function setView(name: ViewName) { activeView = name; ed.frameView(name); markViews(); }

@@ -378,8 +378,11 @@ export class Editor {
     const n = withDescendants(this.state.items, ids).size;
     this.doc.update(s => ({ ...s, items: removeItems(s.items, ids) }));
     this.setSelection([]);
-    this.notify(n > 1 ? `${n} objets supprimés` : 'Objet supprimé');
+    this.offerUndo(n > 1 ? `${n} objets supprimés` : 'Objet supprimé');
   }
+
+  /** Message after something removed, with an Annuler button (set by the app). */
+  offerUndo: (msg: string) => void = msg => this.notify(msg);
 
   duplicate(ids = this.selection) {
     // As when dragging: a cloth lying on a table stands for the whole dressed table.
@@ -587,7 +590,7 @@ export class Editor {
     if (!this.state.items.length) return;
     this.doc.update(s => ({ ...s, items: [] }));
     this.setSelection([]);
-    this.notify('Composition vidée. Annuler pour la retrouver.');
+    this.offerUndo('Composition vidée');
   }
 
   group(ids = this.selection) {

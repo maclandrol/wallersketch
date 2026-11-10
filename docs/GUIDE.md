@@ -4,6 +4,8 @@ WallerSketch sert à composer une table cocktail en 3D, à la présenter au clie
 
 ## L'écran
 
+Une ligne en bas de la vue dit, en quelques mots, ce que vous pouvez faire avec ce qui est sélectionné. Fermez-la avec ×, et retrouvez-la dans le menu **…** (**Aides en bas de la vue**). Après une suppression, le message qui s'affiche propose **Annuler** pendant quelques secondes.
+
 - **À gauche**, la **Bibliothèque** (tables, socles, tissus, cocktails, verres, décor, et vos objets) et la **Scène**, qui liste ce qui est posé sur quoi (« Blue Lagoon × 15 »).
 - **Au centre**, la vue 3D.
 - **À droite**, les **propriétés** de ce qui est sélectionné. Quand rien n'est sélectionné, ce panneau règle la présentation (ambiance, fond, sol) et affiche la liste **À prévoir** : tout le matériel à apporter.

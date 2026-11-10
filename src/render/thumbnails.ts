@@ -6,7 +6,6 @@ import type { Item } from '../core/types';
 import { buildDrink } from './drinks';
 import { buildObject } from './objects';
 import * as M from './materials';
-import { drape } from '../core/drape';
 import { holdsLiquid } from '../core/scene';
 
 const VERSION = 'v3';
@@ -43,30 +42,55 @@ function setup() {
   return renderer;
 }
 
-function fabricPreview(item: Item): THREE.Group {
+/** Every swatch has the same folds: each outline is simulated once, in a worker, then reused. */
+const swatchJobs = new Map<string, Promise<THREE.BufferGeometry>>();
+let swatchWorker: Worker | null = null;
+function swatch(shape: 'rect' | 'round'): Promise<THREE.BufferGeometry> {
+  let job = swatchJobs.get(shape);
+  if (!job) {
+    swatchWorker ??= new Worker('./drape.worker.js', { type: 'module' });
+    const w = swatchWorker;
+    job = new Promise((resolve, reject) => {
+      const done = (e: MessageEvent) => {
+        if (e.data.fabric !== 'swatch:' + shape) return;
+        w.removeEventListener('message', done);
+        if (e.data.error) { reject(new Error(e.data.error)); return; }
+        const r = e.data.result, geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
+        geo.setAttribute('uv', new THREE.BufferAttribute(r.uvs, 2));
+        geo.setIndex(new THREE.BufferAttribute(r.indices, 1));
+        geo.computeVertexNormals();
+        resolve(geo);
+      };
+      w.addEventListener('message', done);
+      w.postMessage({ id: 0, fabric: 'swatch:' + shape, key: shape, input: { shape, width: 0.9, depth: 0.9, x: 0, z: 0, yaw: 0, colliders: [{ kind: 'box', x: 0, z: 0, yaw: 0, bottom: 0, top: 0.35, hx: 0.22, hz: 0.22 }], maxParticles: 1200 } });
+    });
+    swatchJobs.set(shape, job);
+  }
+  return job;
+}
+
+async function fabricPreview(item: Item): Promise<THREE.Group> {
   // A small piece of the actual fabric settled over a block, as a swatch.
   const g = new THREE.Group();
-  const r = drape({ shape: item.shape === 'round' ? 'round' : 'rect', width: 0.9, depth: 0.9, x: 0, z: 0, yaw: 0, colliders: [{ kind: 'box', x: 0, z: 0, yaw: 0, bottom: 0, top: 0.35, hx: 0.22, hz: 0.22 }], maxParticles: 1600 });
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(r.positions, 3));
-  geo.setAttribute('uv', new THREE.BufferAttribute(r.uvs, 2));
-  geo.setIndex(new THREE.BufferAttribute(r.indices, 1));
-  geo.computeVertexNormals();
-  g.add(new THREE.Mesh(geo, M.fabric(item.finish.main)));
+  g.add(new THREE.Mesh(await swatch(item.shape === 'round' ? 'round' : 'rect'), M.fabric(item.finish.main)));
   return g;
 }
 
+/**
+ * One preview at a time, each after the browser has drawn a frame, so browsing the library never
+ * freezes the page. The renderer stays alive a while: its compiled shaders serve the next ones.
+ */
 function pump() {
   const job = queue.shift();
-  if (!job) { running = false; clearTimeout(releaseTimer); releaseTimer = window.setTimeout(release, 4000); return; }
+  if (!job) { running = false; clearTimeout(releaseTimer); releaseTimer = window.setTimeout(release, 60000); return; }
   running = true;
   clearTimeout(releaseTimer);
   // A failed preview must never stall the queue for every later one.
-  try { render(job); } catch (e) { console.warn('Aperçu impossible :', e); job.reject(e); }
-  setTimeout(pump, 0);
+  render(job).catch(e => { console.warn('Aperçu impossible :', e); job.reject(e); }).finally(() => requestAnimationFrame(() => setTimeout(pump, 0)));
 }
 
-function render(job: Job) {
+async function render(job: Job) {
   const r = setup();
   const scene = new THREE.Scene();
   scene.environment = env;
@@ -75,7 +99,7 @@ function render(job: Job) {
   key.position.set(-2, 4, 3);
   scene.add(key, new THREE.HemisphereLight('#ffffff', '#d8d2c8', 0.6));
   const i = job.item;
-  const obj = holdsLiquid(i) ? buildDrink(i.drink!, 3, i.finish.glass) : i.type === 'fabric' ? fabricPreview(i) : buildObject(i);
+  const obj = holdsLiquid(i) ? buildDrink(i.drink!, 3, i.finish.glass) : i.type === 'fabric' ? await fabricPreview(i) : buildObject(i);
   scene.add(obj);
   const box = new THREE.Box3().setFromObject(obj), sphere = box.getBoundingSphere(new THREE.Sphere());
   const cam = new THREE.PerspectiveCamera(26, 1, 0.01, 100);
@@ -83,6 +107,8 @@ function render(job: Job) {
   const dir = new THREE.Vector3(-0.55, flat ? 0.62 : 0.32, 1).normalize();
   cam.position.copy(sphere.center).addScaledVector(dir, sphere.radius / Math.sin((26 * Math.PI) / 360) * 1.02);
   cam.lookAt(sphere.center);
+  // Shaders compile in the background where the browser allows it, instead of blocking.
+  await r.compileAsync(scene, cam);
   r.render(scene, cam);
   const url = r.domElement.toDataURL('image/webp', 0.9);
   if (job.persist) { memory.set(job.key, url); store(job.key, url); }
