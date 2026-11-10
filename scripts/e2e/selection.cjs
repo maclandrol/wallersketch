@@ -143,7 +143,8 @@ module.exports = async t => {
   const dist = () => t.eval(() => { const v = window.studio.view; return v.camera.position.distanceTo(v.controls.target); });
   const d0 = await dist();
   await page.keyboard.press('-');
-  await page.waitForTimeout(400);
+  // Software rendering on CI runners draws few frames per second: wait for the animation.
+  await page.waitForFunction(d0 => { const v = window.studio.view; return v.camera.position.distanceTo(v.controls.target) > d0 * 1.2; }, d0, { timeout: 5000 }).catch(() => {});
   t.check(await dist() > d0 * 1.2, 'minus zooms out');
   await page.keyboard.press('?');
   t.check(await page.locator('.shortcuts').isVisible(), '? opens the shortcuts');
