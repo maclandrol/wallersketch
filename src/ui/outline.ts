@@ -13,7 +13,7 @@ export class OutlinePanel {
   private closed = new Set<string>();
   private pending = 0;
 
-  constructor(private ed: Editor) {
+  constructor(private ed: Editor, private onClear: () => void) {
     ed.on(() => { cancelAnimationFrame(this.pending); this.pending = requestAnimationFrame(() => this.render()); });
     this.render();
   }
@@ -27,6 +27,11 @@ export class OutlinePanel {
     const ids = new Set(items.map(i => i.id));
     for (const i of items) (i.parentId && ids.has(i.parentId) ? (kids.get(i.parentId) ?? kids.set(i.parentId, []).get(i.parentId)!) : roots).push(i);
     const list = h('div', { class: 'outline-list' });
+    const n = this.ed.selection.length;
+    const head = h('div', { class: 'outline-head' },
+      h('span', null, n ? `${n} sélectionné${n > 1 ? 's' : ''}` : `${items.length} objet${items.length > 1 ? 's' : ''}`),
+      button(n === items.length && n ? 'Désélectionner' : 'Tout sélectionner', { class: 'small', onClick: () => (n === items.length ? this.ed.setSelection([]) : this.ed.select(items.map(i => i.id), 'single')) }),
+      button('Vider…', { class: 'small danger', onClick: this.onClear }));
     if (!items.length) {
       this.el.replaceChildren(h('div', { class: 'empty' }, h('strong', null, 'Scène vide'), 'Ajoutez une table depuis la bibliothèque pour commencer.'));
       return;
@@ -60,7 +65,7 @@ export class OutlinePanel {
     };
     walk(roots, 0);
     const scroll = this.el.scrollTop;
-    this.el.replaceChildren(list);
+    this.el.replaceChildren(head, list);
     this.el.scrollTop = scroll;
   }
 }

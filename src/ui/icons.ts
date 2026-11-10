@@ -48,6 +48,10 @@ const P: Record<string, string> = {
   sparkle: 'M10 2.5l1.6 4.4 4.4 1.6-4.4 1.6L10 14.5l-1.6-4.4L4 8.5l4.4-1.6zM15.5 13l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z',
   magnet: 'M5 3v7a5 5 0 0 0 10 0V3h-3.5v7a1.5 1.5 0 0 1-3 0V3zM5 6.5h3.5M11.5 6.5H15',
   cube: 'M10 2.5l6.5 3.7v7.6L10 17.5l-6.5-3.7V6.2z',
+  marquee: 'M3 3h2M8 3h4M15 3h2v2M17 8v4M17 15v2h-2M12 17H8M5 17H3v-2M3 12V8M3 5V3',
+  align: 'M3 3v14M6 5h9v3H6zM6 12h6v3H6z',
+  swap: 'M4 7h11l-3-3M16 13H5l3 3',
+  select: 'M4 3l11 6-5 1.5L8 16z',
 };
 
 export function icon(name: string, size = 18): SVGSVGElement {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.0 (10 November 2026)
+
+- Selecting several objects: draw a box with the new Sélection tool or Shift-drag from an empty spot. Only objects fully inside are taken, so the table under them stays out.
+- A selection bar above the scene names what is selected and acts on all of it: duplicate, rotate, align edges or centres, distribute with equal gaps, replace cocktails or glasses in place, group, lock, frame and delete.
+- Select the same objects, or add what stands on the selection, from the bar or the context menu.
+- While dragging, objects snap to the edges and centre of their support and of their neighbours, with a guide line and the distance to the support's edges. The grid applies otherwise.
+- The selection stays sharp while the rest of the scene fades. Double-click an object to frame it.
+- Vider la composition, with a confirmation, in the File menu, the context menu and the Scène tab.
+- Menus open within the window and close when their button is clicked again.
+
 ## 2.1.0 (10 November 2026)
 
 - WallerSketch now runs on iPad and Android tablets as a web app at maclandrol.github.io/wallersketch. Added to the home screen, it opens full screen and works offline.

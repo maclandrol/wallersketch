@@ -18,7 +18,7 @@ import { glassFootRadius, glassProfile } from '../core/glassware';
 function grabPointer(el: Element, id: number) { try { el.setPointerCapture(id); } catch { /* pointer gone */ } }
 
 export interface ViewportEvents {
-  select(ids: string[], mode: 'replace' | 'toggle' | 'single'): void;
+  select(ids: string[], mode: 'replace' | 'toggle' | 'single' | 'add'): void;
   /** Live drag of the selection; `final` closes the undo step. */
   /** `free`: Alt held, no grid snapping. */
   move(ids: string[], delta: Vec3, final: boolean, free: boolean): void;
@@ -85,16 +85,21 @@ export class Viewport {
   private ghost = new THREE.Group();
   private ghostMat = new THREE.MeshBasicMaterial({ color: '#1f6feb', transparent: true, opacity: 0.28, depthWrite: false });
   private ring: THREE.Group;
-  private pointer?: { id: number; x: number; y: number; mode: 'pending' | 'move' | 'rotate' | 'orbit'; ids: string[]; anchor: THREE.Vector3; plane: THREE.Plane; last: Vec3; start: number; pivot: Vec3; startAngle: number; lastYaw: number; additive: boolean };
+  private pointer?: { id: number; x: number; y: number; mode: 'pending' | 'move' | 'rotate' | 'orbit' | 'box'; ids: string[]; anchor: THREE.Vector3; plane: THREE.Plane; last: Vec3; start: number; pivot: Vec3; startAngle: number; lastYaw: number; additive: boolean };
   private anim?: { from: [THREE.Vector3, THREE.Vector3]; to: [THREE.Vector3, THREE.Vector3]; t0: number; ms: number };
   private size = { w: 1, h: 1 };
   helpersVisible = true;
+  /** Selection tool: a drag on empty space draws a selection box (Shift does the same). */
+  boxTool = false;
+  private marquee = Object.assign(document.createElement('div'), { className: 'marquee' });
   private coarse = matchMedia('(pointer: coarse)').matches;
 
   constructor(private host: HTMLElement, private events: ViewportEvents) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     this.renderer.toneMapping = THREE.NeutralToneMapping;
+    // Neutral studio colour until a composition (and its background) is loaded.
+    this.renderer.setClearColor('#ece9e3');
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.appendChild(this.renderer.domElement);
@@ -113,7 +118,11 @@ export class Viewport {
     this.key.shadow.bias = -0.0002;
     this.key.shadow.normalBias = 0.015;
     this.key.shadow.radius = 5;
-    this.scene.add(this.floor, this.key, this.key.target, this.hemi, this.root, this.overlay);
+    this.scene.add(this.floor, this.key, this.key.target, this.hemi, this.root, this.overlay, this.focusDrinks);
+    // Lights and the editor overlay also take part in the focus pass (layer 1).
+    this.overlay.add(this.guides);
+    for (const o of [this.key, this.hemi, this.overlay]) o.layers.enable(1);
+    this.veil.frustumCulled = false;
     this.root.add(this.batchRoot);
     this.overlay.add(this.ghost);
     this.ring = this.makeRing();
@@ -171,7 +180,113 @@ export class Viewport {
     const fog = this.scene.fog as THREE.Fog | null;
     if (fog) { const d = this.camera.position.distanceTo(this.controls.target); fog.near = d * 1.6 + 4; fog.far = d * 3 + 14; }
     this.updateOverlay();
-    this.renderer.render(this.scene, this.camera);
+    this.placeGuideLabel();
+    this.render();
+  }
+
+  // ------------------------------------------------------------------ smart guides
+
+  private guides = new THREE.Group();
+  private guideMat = new THREE.LineBasicMaterial({ color: '#1f6feb', depthTest: false, transparent: true });
+  private guideLabel = Object.assign(document.createElement('div'), { className: 'guide-label' });
+  private guideAt: THREE.Vector3 | null = null;
+
+  /** Alignment lines and the live distance label shown while dragging (empty to clear). */
+  setGuides(lines: [Vec3, Vec3][], label: { text: string; at: Vec3 } | null) {
+    this.guides.traverse(o => (o as THREE.Line).geometry?.dispose());
+    this.guides.clear();
+    for (const [a, b] of lines) {
+      const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]), this.guideMat);
+      l.renderOrder = 11;
+      this.guides.add(l);
+    }
+    if (label) {
+      this.guideLabel.textContent = label.text;
+      this.guideAt = new THREE.Vector3(...label.at);
+      if (!this.guideLabel.isConnected) this.host.append(this.guideLabel);
+    } else { this.guideAt = null; this.guideLabel.remove(); }
+    this.invalidate();
+  }
+
+  private placeGuideLabel() {
+    if (!this.guideAt) return;
+    const v = this.guideAt.clone().project(this.camera), r = this.renderer.domElement.getBoundingClientRect(), h = this.host.getBoundingClientRect();
+    this.guideLabel.style.left = (r.left - h.left + ((v.x + 1) / 2) * r.width) + 'px';
+    this.guideLabel.style.top = (r.top - h.top + ((1 - v.y) / 2) * r.height - 34) + 'px';
+  }
+
+  /** Frame objects from the current viewing direction (double-click). */
+  frameKeepingDirection(ids: string[]) {
+    const b = this.contentBounds(ids);
+    if (b.isEmpty()) return;
+    const sphere = b.getBoundingSphere(new THREE.Sphere());
+    const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+    const fov = (this.camera.fov * Math.PI) / 180, fit = Math.min(fov, fov * this.camera.aspect);
+    const dist = Math.max(0.5, (sphere.radius * 1.6) / Math.sin(fit / 2));
+    this.animateTo(sphere.center.clone().addScaledVector(dir, dist), sphere.center.clone());
+  }
+
+  // ------------------------------------------------------------------ focus on the selection
+
+  /** Fade the rest of the scene while something is selected (the composition stays readable). */
+  focusSelection = true;
+  private veil = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5, depthTest: false, depthWrite: false }));
+  private veilCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  private focusDrinks = new THREE.Group();
+  private focusKey: unknown[] = [];
+  private focused = new Set<THREE.Object3D>();
+
+  /**
+   * Two passes: the whole scene, a veil in the background colour, then the selection (and what
+   * stands on it) drawn again on layer 1 with the editor overlay, so it stands out clearly.
+   */
+  private render() {
+    const r = this.renderer;
+    r.render(this.scene, this.camera);
+    if (!this.focusSelection || !this.helpersVisible || !this.selection.length || !this.state) return;
+    this.updateFocus();
+    (this.veil.material as THREE.MeshBasicMaterial).color.copy((this.scene.background as THREE.Color | null) ?? new THREE.Color('#ece9e3'));
+    const shadows = r.shadowMap.autoUpdate;
+    r.autoClear = false;
+    r.shadowMap.autoUpdate = false;
+    r.render(this.veil, this.veilCamera);
+    r.clearDepth();
+    // A colour background forces a clear in Three.js: remove it (and fog) for the focus pass.
+    const fog = this.scene.fog, background = this.scene.background;
+    this.scene.fog = null;
+    this.scene.background = null;
+    this.camera.layers.set(1);
+    r.render(this.scene, this.camera);
+    this.camera.layers.set(0);
+    this.scene.fog = fog;
+    this.scene.background = background;
+    r.autoClear = true;
+    r.shadowMap.autoUpdate = shadows;
+  }
+
+  /** Put the selected objects on layer 1; drinks are instanced, so they get plain copies there. */
+  private updateFocus() {
+    const ids = withDescendants(this.state!.items, this.selection);
+    const key = [this.state!.items, this.selection, this.drapes.size];
+    if (!key.some((v, k) => v !== this.focusKey[k])) return;
+    this.focusKey = key;
+    for (const o of this.focused) o.layers.disable(1);
+    this.focused.clear();
+    this.focusDrinks.clear();
+    let drinks = 0;
+    for (const id of ids) {
+      const e = this.entries.get(id);
+      if (!e) continue;
+      if (holdsLiquid(e.item)) {
+        if (++drinks > 300) continue;
+        const g = buildDrink(e.item.drink!, hash(e.item.id), e.item.finish.glass);
+        g.position.set(...e.item.position);
+        g.rotation.y = e.item.rotation;
+        g.traverse(o => o.layers.set(1));
+        g.updateMatrixWorld(true);
+        this.focusDrinks.add(g);
+      } else e.group.traverse(o => { o.layers.enable(1); this.focused.add(o); });
+    }
   }
 
   // ------------------------------------------------------------------ document sync
@@ -183,7 +298,12 @@ export class Viewport {
     const prev = this.state;
     this.state = state;
     if (!prev || prev.scene !== state.scene) this.applyScene(state.scene);
-    if (prev?.items === state.items) return;
+    // A partial sync (while re-seating objects) may already have seen these items: the drink
+    // batches, fabrics and shadows it skipped still need updating.
+    if (prev?.items === state.items) {
+      if (!partial && (this.drinksDirty || this.partialPending)) this.finishSync();
+      return;
+    }
     const seen = new Set<string>();
     for (const item of state.items) {
       seen.add(item.id);
@@ -198,7 +318,13 @@ export class Viewport {
       if (!holdsLiquid(item)) this.root.add(group);
     }
     for (const [id, e] of this.entries) if (!seen.has(id)) { if (holdsLiquid(e.item)) this.drinksDirty = true; this.dispose(e); this.entries.delete(id); }
-    if (partial) return;
+    if (partial) { this.partialPending = true; return; }
+    this.finishSync();
+  }
+
+  private partialPending = false;
+  private finishSync() {
+    this.partialPending = false;
     if (this.drinksDirty) this.rebuildDrinks();
     this.updateDrapes();
     this.fitShadows();
@@ -604,6 +730,8 @@ export class Viewport {
       knob.scale.setScalar((this.camera.position.distanceTo(this.ring.position) * (this.coarse ? 0.016 : 0.008)) / (r * 0.045));
       this.ring.visible = true;
     } else this.ring.visible = false;
+    // Helpers are drawn above the focus veil.
+    this.overlay.traverse(o => o.layers.enable(1));
   }
 
   /** Snapping grid on the surface the dragged object rests on, aligned to that surface. */
@@ -630,7 +758,8 @@ export class Viewport {
     this.snapGrid.add(lines);
     this.overlay.add(this.snapGrid);
   }
-  private gridMat = new THREE.LineBasicMaterial({ color: '#1f6feb', transparent: true, opacity: 0.22, depthTest: false });
+  // Under objects (depth-tested) and light, so it guides without covering what is dragged.
+  private gridMat = new THREE.LineBasicMaterial({ color: '#1f6feb', transparent: true, opacity: 0.14, depthWrite: false });
 
   private outline(id: string, mat: THREE.LineBasicMaterial) {
     const e = this.entries.get(id);
@@ -740,7 +869,20 @@ export class Viewport {
       }
       const id = this.itemAt(e.clientX, e.clientY);
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-      if (!id) { this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'orbit', ids: [], anchor: new THREE.Vector3(), plane: new THREE.Plane(), last: [0, 0, 0], start: performance.now(), pivot: [0, 0, 0], startAngle: 0, lastYaw: 0, additive }; return; }
+      // With the selection tool on, every drag draws a box (in a dense display almost every
+      // point is on a glass); a tap without moving still selects what is under it.
+      if (this.boxTool) {
+        this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'box', ids: id ? [id] : [], anchor: new THREE.Vector3(), plane: new THREE.Plane(), last: [0, 0, 0], start: performance.now(), pivot: [0, 0, 0], startAngle: 0, lastYaw: 0, additive };
+        this.controls.enabled = false;
+        grabPointer(el, e.pointerId);
+        return;
+      }
+      if (!id) {
+        const box = e.shiftKey;
+        this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: box ? 'box' : 'orbit', ids: [], anchor: new THREE.Vector3(), plane: new THREE.Plane(), last: [0, 0, 0], start: performance.now(), pivot: [0, 0, 0], startAngle: 0, lastYaw: 0, additive };
+        if (box) { this.controls.enabled = false; grabPointer(el, e.pointerId); }
+        return;
+      }
       if (!this.selection.includes(id) || additive || e.altKey) this.events.select([id], additive ? 'toggle' : e.altKey ? 'single' : 'replace');
       let ids = this.selection.filter(s => !this.entries.get(s)?.item.locked);
       if (!ids.length || additive) return;
@@ -768,6 +910,7 @@ export class Viewport {
       if (p.mode === 'pending' && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 4) { p.mode = 'move'; this.hovered = null; }
       if (p.mode === 'move') this.dragMove(e.clientX, e.clientY, p, false, e.altKey);
       if (p.mode === 'rotate') this.dragRotate(e, p, false);
+      if (p.mode === 'box') this.drawMarquee(p.x, p.y, e.clientX, e.clientY);
     });
     const end = (e: PointerEvent) => {
       const p = this.pointer;
@@ -776,13 +919,47 @@ export class Viewport {
       this.controls.enabled = true;
       if (p.mode === 'move') this.dragMove(e.clientX, e.clientY, p, true, e.altKey);
       else if (p.mode === 'rotate') this.dragRotate(e, p, true);
+      else if (p.mode === 'box') {
+        if (p.ids.length && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 6) this.events.select(p.ids, p.additive ? 'toggle' : 'replace');
+        else this.finishMarquee(p.x, p.y, e.clientX, e.clientY, p.additive);
+      }
       else if (p.mode === 'orbit' && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 4 && !p.additive) this.events.select([], 'replace');
       this.invalidate();
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
     el.addEventListener('pointerleave', () => { if (this.hovered && !this.pointer) { this.hovered = null; this.events.hover(null); this.invalidate(); } });
+    el.addEventListener('dblclick', e => { const id = this.itemAt(e.clientX, e.clientY); if (id) this.frameKeepingDirection([...withDescendants(this.state!.items, [id])]); });
     el.addEventListener('contextmenu', e => { e.preventDefault(); this.events.contextMenu(this.itemAt(e.clientX, e.clientY), e.clientX, e.clientY); });
+  }
+
+  private drawMarquee(x0: number, y0: number, x1: number, y1: number) {
+    const r = this.host.getBoundingClientRect(), m = this.marquee;
+    if (!m.isConnected) this.host.append(m);
+    Object.assign(m.style, { left: Math.min(x0, x1) - r.left + 'px', top: Math.min(y0, y1) - r.top + 'px', width: Math.abs(x1 - x0) + 'px', height: Math.abs(y1 - y0) + 'px' });
+  }
+
+  /** Select every object whose centre falls inside the box drawn on screen. */
+  private finishMarquee(x0: number, y0: number, x1: number, y1: number, additive: boolean) {
+    this.marquee.remove();
+    if (Math.hypot(x1 - x0, y1 - y0) < 6) { if (!additive) this.events.select([], 'replace'); return; }
+    const r = this.renderer.domElement.getBoundingClientRect(), v = new THREE.Vector3();
+    const [left, right, top, bottom] = [Math.min(x0, x1), Math.max(x0, x1), Math.min(y0, y1), Math.max(y0, y1)];
+    const ids: string[] = [];
+    // Like design tools: only objects entirely inside the box, so a box drawn around the glasses
+    // on a table does not also take the table.
+    for (const [id, e] of this.entries) {
+      const i = e.item;
+      if (i.type === 'fabric') continue;
+      const bottomY = i.position[1], topY = i.position[1] + i.size[1];
+      const inside = footprintCorners(i).every(([x, z]) => [bottomY, topY].every(y => {
+        v.set(x, y, z).project(this.camera);
+        const sx = r.left + ((v.x + 1) / 2) * r.width, sy = r.top + ((1 - v.y) / 2) * r.height;
+        return v.z < 1 && sx >= left && sx <= right && sy >= top && sy <= bottom;
+      }));
+      if (inside) ids.push(id);
+    }
+    this.events.select(ids, additive ? 'add' : 'replace');
   }
 
   private dragMove(x: number, y: number, p: NonNullable<Viewport['pointer']>, final: boolean, free = false) {

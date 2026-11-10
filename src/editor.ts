@@ -4,7 +4,7 @@ import type { Arrangement, CameraView, DocState, EmbeddedAsset, Finish, Item, Sc
 import { Document, emptyState } from './core/document';
 import { clampSize, createItem, duplicateItems, expandGroups, footprintContains, gridPositions, holdsLiquid, isSupport, newId, removeItems, selectionCentre, transformItems, withDescendants, type GridSpec } from './core/scene';
 import { glassFromData, parseProject, serialise } from './core/project';
-import { registerEntry, unregisterEntry, type CatalogEntry } from './core/catalog';
+import { catalogEntry, registerEntry, unregisterEntry, type CatalogEntry } from './core/catalog';
 import { registerGlass, type GlassProfile } from './core/glassware';
 import type { Compiled } from './core/recipes';
 import type { Viewport, ViewName } from './render/viewport';
@@ -85,10 +85,11 @@ export class Editor {
     if (emit) this.emit();
   }
 
-  select(ids: string[], mode: 'replace' | 'toggle' | 'single' = 'replace') {
+  select(ids: string[], mode: 'replace' | 'toggle' | 'single' | 'add' = 'replace') {
     const items = this.state.items;
     const expanded = mode === 'single' ? ids : expandGroups(items, ids);
-    if (mode === 'toggle') {
+    if (mode === 'add') this.setSelection([...new Set([...this.selection, ...expanded])]);
+    else if (mode === 'toggle') {
       const cur = new Set(this.selection), all = expanded.every(id => cur.has(id));
       for (const id of expanded) all ? cur.delete(id) : cur.add(id);
       this.setSelection([...cur]);
@@ -227,15 +228,81 @@ export class Editor {
     return [s.position[0] + lx * c + lz * sn, target[1], s.position[2] - lx * sn + lz * c];
   }
 
+  /**
+   * Snapping while dragging, like smart guides in design tools: line up with neighbours on the
+   * same support (centres, edges, flush side by side) and with the support's edges and centre.
+   * Without a match within 2 cm, the grid applies (if on). Returns guide lines to draw and the
+   * distances from the support's left edge and back, which installers measure.
+   */
+  private smartSnap(p: Item, target: Vec3, moving: Set<string>): { pos: Vec3; guides: [Vec3, Vec3][]; label: { text: string; at: Vec3 } | null } {
+    const s = p.parentId ? this.item(p.parentId) : undefined;
+    const others = this.state.items.filter(i => !moving.has(i.id) && i.type !== 'fabric' && !i.ref.startsWith('backdrop') && i.parentId === p.parentId);
+    const f = this.alignFrame(s ? [{ ...p, parentId: s.id }] : [p]);
+    const [lx, lz] = f.toLocal(target[0], target[2]), [hx, hz] = f.half(p);
+    const local: [number, number] = [lx, lz], half: [number, number] = [hx, hz];
+    const threshold = 0.02, guides: [Vec3, Vec3][] = [];
+    // Each candidate: a coordinate to match along `axis`, and the extent of the thing it belongs to.
+    type Line = { v: number; lo: number; hi: number };
+    const lines: [Line[], Line[]] = [[], []];
+    if (s) {
+      const [w, , d] = s.size;
+      lines[0].push({ v: -w / 2, lo: -d / 2, hi: d / 2 }, { v: 0, lo: -d / 2, hi: d / 2 }, { v: w / 2, lo: -d / 2, hi: d / 2 });
+      lines[1].push({ v: -d / 2, lo: -w / 2, hi: w / 2 }, { v: 0, lo: -w / 2, hi: w / 2 }, { v: d / 2, lo: -w / 2, hi: w / 2 });
+    }
+    for (const o of others) {
+      const c = f.toLocal(o.position[0], o.position[2]), h = f.half(o);
+      for (const axis of [0, 1] as const) {
+        const other = 1 - axis;
+        for (const v of [c[axis] - h[axis], c[axis], c[axis] + h[axis]]) lines[axis].push({ v, lo: c[other] - h[other], hi: c[other] + h[other] });
+      }
+    }
+    const snappedAxis = [false, false];
+    for (const axis of [0, 1] as const) {
+      let best: { d: number; v: number; line: Line } | null = null;
+      // The moving object's left edge, centre and right edge (or back, centre, front).
+      for (const off of [-half[axis], 0, half[axis]]) for (const line of lines[axis]) {
+        const d = line.v - (local[axis] + off);
+        if (Math.abs(d) < threshold && (!best || Math.abs(d) < Math.abs(best.d))) best = { d, v: line.v, line };
+      }
+      if (best) {
+        local[axis] += best.d;
+        snappedAxis[axis] = true;
+        const other = 1 - axis, lo = Math.min(best.line.lo, local[other] - half[other]) - 0.03, hi = Math.max(best.line.hi, local[other] + half[other]) + 0.03;
+        const y = (s ? s.position[1] + s.size[1] : 0) + 0.002;
+        const a = axis === 0 ? f.toWorld(best.v, lo) : f.toWorld(lo, best.v), b = axis === 0 ? f.toWorld(best.v, hi) : f.toWorld(hi, best.v);
+        const o = s ? [s.position[0], s.position[2]] : [0, 0];
+        guides.push([[a[0] + o[0], y, a[2] + o[1]], [b[0] + o[0], y, b[2] + o[1]]]);
+      }
+    }
+    let pos: Vec3 = [...target];
+    const back = f.toWorld(local[0], local[1]);
+    if (s) pos = [s.position[0] + back[0], target[1], s.position[2] + back[2]];
+    else pos = [back[0], target[1], back[2]];
+    // Grid on the axes that did not line up with anything.
+    if (this.view.snap.enabled && !(snappedAxis[0] && snappedAxis[1])) {
+      const g = this.snapped(p, pos);
+      const [gx, gz] = f.toLocal(g[0], g[2]);
+      const l2: [number, number] = [snappedAxis[0] ? local[0] : gx, snappedAxis[1] ? local[1] : gz];
+      const w2 = f.toWorld(l2[0], l2[1]);
+      pos = s ? [s.position[0] + w2[0], target[1], s.position[2] + w2[2]] : [w2[0], target[1], w2[2]];
+      local[0] = l2[0]; local[1] = l2[1];
+    }
+    const cm = (m: number) => Math.round(m * 100);
+    const label = s && s.type !== 'fabric' ? { text: `Gauche ${cm(local[0] - half[0] + s.size[0] / 2)} cm · Fond ${cm(local[1] - half[1] + s.size[2] / 2)} cm`, at: [pos[0], pos[1] + p.size[1], pos[2]] as Vec3 } : null;
+    return { pos, guides, label };
+  }
+
   /** Rigid move from a drag or nudge. Live drags merge into one undo step; `free` skips snapping. */
   move(ids: string[], delta: Vec3, final = true, merge?: string, free = true) {
     const roots = this.roots(ids);
     if (!roots.length) return;
-    if (!free && this.view.snap.enabled) {
-      const p = this.item(roots[0])!, t = this.snapped(p, [p.position[0] + delta[0], p.position[1], p.position[2] + delta[2]]);
-      delta = [t[0] - p.position[0], delta[1], t[2] - p.position[2]];
+    if (!free) {
+      const p = this.item(roots[0])!;
+      const r = this.smartSnap(p, [p.position[0] + delta[0], p.position[1], p.position[2] + delta[2]], withDescendants(this.state.items, roots));
+      delta = [r.pos[0] - p.position[0], delta[1], r.pos[2] - p.position[2]];
+      this.view.setGuides(final ? [] : r.guides, final ? null : r.label);
       if (!final && Math.abs(delta[0]) + Math.abs(delta[2]) < 1e-9) return;
-    }
+    } else if (final) this.view.setGuides([], null);
     const key = merge ?? 'drag' + this.dragKey;
     this.doc.update(s => ({ ...s, items: this.settle(transformItems(s.items, roots, delta), roots) }), key);
     if (final) { this.dragKey++; this.doc.seal(); }
@@ -326,6 +393,85 @@ export class Editor {
     this.doc.update(s => ({ ...s, items: this.settle([...s.items, ...copies], copies.map(c => c.id)) }));
     const copyRoots = copies.filter(c => !c.parentId || !copies.some(o => o.id === c.parentId));
     this.setSelection(copyRoots.map(c => c.id));
+  }
+
+  // ------------------------------------------------------------------ selection helpers
+
+  /** Everything identical to the selection: same catalogue entry and, for drinks, same recipe. */
+  selectSimilar() {
+    const sig = (i: Item) => i.type + '|' + i.ref + '|' + JSON.stringify(i.drink ?? '') + '|' + i.size.join();
+    const wanted = new Set(this.selected.map(sig));
+    this.setSelection(this.state.items.filter(i => wanted.has(sig(i))).map(i => i.id));
+  }
+
+  /** The selection plus everything standing on it. */
+  selectSupported() { this.setSelection([...withDescendants(this.state.items, this.selection)]); }
+
+  /**
+   * Frame used to align objects: the support they share (so "left" follows a rotated table),
+   * otherwise the world.
+   */
+  private alignFrame(items: Item[]) {
+    const parents = new Set(items.map(i => i.parentId));
+    const s = parents.size === 1 && items[0].parentId ? this.item(items[0].parentId) : undefined;
+    const yaw = s?.rotation ?? 0, c = Math.cos(yaw), sn = Math.sin(yaw);
+    const ox = s?.position[0] ?? 0, oz = s?.position[2] ?? 0;
+    return {
+      toLocal: (x: number, z: number): [number, number] => [(x - ox) * c - (z - oz) * sn, (x - ox) * sn + (z - oz) * c],
+      toWorld: (dx: number, dz: number): Vec3 => [dx * c + dz * sn, 0, -dx * sn + dz * c],
+      /** Half extent of an object along the frame's x and z axes. */
+      half: (i: Item): [number, number] => { const a = i.rotation - yaw, ca = Math.abs(Math.cos(a)), sa = Math.abs(Math.sin(a)); return [(ca * i.size[0] + sa * i.size[2]) / 2, (sa * i.size[0] + ca * i.size[2]) / 2]; },
+    };
+  }
+
+  /** Move several objects by their own deltas in one undo step. */
+  private moveEach(deltas: Map<string, Vec3>) {
+    if (![...deltas.values()].some(d => Math.abs(d[0]) + Math.abs(d[2]) > 1e-7)) return;
+    this.doc.update(s => {
+      let items = s.items;
+      for (const [id, d] of deltas) items = transformItems(items, [id], d);
+      return { ...s, items: this.settle([...items], [...deltas.keys()]) };
+    });
+  }
+
+  /** Align the selected objects' edges or centres along x (left/right) or z (back/front). */
+  align(axis: 0 | 1, where: 'min' | 'center' | 'max') {
+    const roots = this.roots(this.selection).map(id => this.item(id)!).filter(i => i.type !== 'fabric');
+    if (roots.length < 2) return;
+    const f = this.alignFrame(roots);
+    const edge = (i: Item) => { const p = f.toLocal(i.position[0], i.position[2])[axis], h = f.half(i)[axis]; return where === 'min' ? p - h : where === 'max' ? p + h : p; };
+    const target = where === 'min' ? Math.min(...roots.map(edge)) : where === 'max' ? Math.max(...roots.map(edge)) : roots.reduce((a, i) => a + edge(i), 0) / roots.length;
+    this.moveEach(new Map(roots.map(i => { const d = target - edge(i); return [i.id, f.toWorld(axis === 0 ? d : 0, axis === 1 ? d : 0)]; })));
+  }
+
+  /** Spread the selected objects evenly between the two outermost ones (equal gaps). */
+  distribute(axis: 0 | 1) {
+    const roots = this.roots(this.selection).map(id => this.item(id)!).filter(i => i.type !== 'fabric');
+    if (roots.length < 3) { this.notify(this.selection.length >= 3 ? 'Il faut au moins trois objets côte à côte : ceux posés sur un autre suivent leur support' : 'Sélectionnez au moins trois objets à répartir'); return; }
+    const f = this.alignFrame(roots);
+    const pos = (i: Item) => f.toLocal(i.position[0], i.position[2])[axis];
+    const sorted = [...roots].sort((a, b) => pos(a) - pos(b));
+    const first = sorted[0], last = sorted[sorted.length - 1];
+    const start = pos(first) + f.half(first)[axis], end = pos(last) - f.half(last)[axis];
+    const inner = sorted.slice(1, -1), total = inner.reduce((a, i) => a + 2 * f.half(i)[axis], 0);
+    const gap = (end - start - total) / (inner.length + 1);
+    let cursor = start + gap;
+    const deltas = new Map<string, Vec3>();
+    for (const i of inner) {
+      const c = cursor + f.half(i)[axis], d = c - pos(i);
+      deltas.set(i.id, f.toWorld(axis === 0 ? d : 0, axis === 1 ? d : 0));
+      cursor += 2 * f.half(i)[axis] + gap;
+    }
+    this.moveEach(deltas);
+  }
+
+  /** Swap the selected glasses or cocktails for another one, keeping their places. */
+  replaceWith(ref: string) {
+    const e = catalogEntry(ref);
+    const ids = this.selected.filter(i => holdsLiquid(i) && i.ref !== ref).map(i => i.id);
+    if (!e || !e.drink || !ids.length) return;
+    this.patch(ids, () => ({ ref: e.ref, type: e.type, name: e.name, size: [...e.size] as Vec3, drink: structuredClone(e.drink!), finish: structuredClone(e.finish) }));
+    this.notify(`${ids.length} remplacé${ids.length > 1 ? 's' : ''} par ${e.name}`, 'ok');
   }
 
   clear() {

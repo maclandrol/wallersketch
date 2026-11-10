@@ -9,6 +9,7 @@ createServer(async (req, res) => {
   const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   const file = path.join(root, url.endsWith('/') ? url + 'index.html' : url);
   if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
-  try { res.writeHead(200, { 'Content-Type': types[path.extname(file)] ?? 'application/octet-stream' }).end(await readFile(file)); }
-  catch { res.writeHead(404).end('Not found'); }
+  let body;
+  try { body = await readFile(file); } catch { res.writeHead(404).end('Not found'); return; }
+  res.writeHead(200, { 'Content-Type': types[path.extname(file)] ?? 'application/octet-stream' }).end(body);
 }).listen(port, () => console.log(`http://localhost:${port}/`));

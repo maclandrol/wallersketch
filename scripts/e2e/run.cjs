@@ -64,7 +64,7 @@ function tools(ctx) {
 }
 
 (async () => {
-  const flows = only ? [path.resolve(only)] : ['editing.cjs', ...(exe ? [] : ['files.cjs', 'features.cjs'])].map(f => path.join(__dirname, f));
+  const flows = only ? [path.resolve(only)] : ['editing.cjs', 'selection.cjs', ...(exe ? [] : ['files.cjs', 'features.cjs'])].map(f => path.join(__dirname, f));
   let failures = 0;
   for (const file of flows) {
     console.log(path.basename(file));

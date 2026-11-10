@@ -14,6 +14,7 @@ import { AgentBridge } from './agent';
 import { webNative } from './web/native';
 import { openAssistant } from './ui/assistant';
 import { openDrinkBuilder } from './ui/drinkBuilder';
+import { selectionBar } from './ui/selectionBar';
 
 declare global { interface Window { native: Native; studio: unknown } }
 
@@ -86,14 +87,14 @@ function fileMenu(anchor: HTMLElement) {
     { label: 'Importer un modèle 3D ou CAO…', icon: 'import', kbd: kbd('Mod+I'), run: () => action('importModel') },
     { label: 'Créer un cocktail…', icon: 'cocktail', run: () => openDrinkBuilder(ed) },
     'sep',
-    { label: 'Vider la composition', icon: 'trash', danger: true, disabled: !ed.state.items.length, run: () => ed.clear() },
+    { label: 'Vider la composition…', icon: 'trash', danger: true, disabled: !ed.state.items.length, run: () => confirmClear() },
   ]);
 }
 
 // ------------------------------------------------------------------ side panels
 const library = new LibraryPanel(ed, stage, () => openDrinkBuilder(ed));
 library.onAdded = () => { if (matchMedia('(max-width: 1100px)').matches) toggleDrawer('left', false); };
-const outline = new OutlinePanel(ed);
+const outline = new OutlinePanel(ed, () => confirmClear());
 let leftTab: 'library' | 'scene' = 'library';
 const tabs = h('div', { class: 'tabs', role: 'tablist' });
 const leftBody = h('div', { style: 'display:flex;flex-direction:column;min-height:0;flex:1' });
@@ -130,8 +131,12 @@ snapBtn.addEventListener('click', () => menu(snapBtn, [
 ]));
 const persistSnap = () => { try { localStorage.setItem('snap', JSON.stringify(view.snap)); } catch { /* ignore */ } snapLabel(); view.invalidate(); };
 snapLabel();
-viewsBar.append(h('div', { class: 'sep' }), snapBtn, h('div', { class: 'sep' }), button('Cadrer', { icon: 'frame', title: 'Cadrer la sélection ou tout (F)', onClick: () => ed.frameView((activeView ?? 'perspective')) }));
+// Box selection: a drag on empty space draws a selection box (Shift-drag does the same anytime).
+const boxBtn = button('Sélection', { icon: 'marquee', title: 'Sélectionner en traçant un cadre (ou Maj + glisser)', onClick: () => { view.boxTool = !view.boxTool; boxBtn.classList.toggle('on', view.boxTool); stage.classList.toggle('box-tool', view.boxTool); } });
+viewsBar.append(h('div', { class: 'sep' }), boxBtn, snapBtn, h('div', { class: 'sep' }), button('Cadrer', { icon: 'frame', title: 'Cadrer la sélection ou tout (F)', onClick: () => ed.frameView((activeView ?? 'perspective')) }));
 stage.append(viewsBar);
+const selBar = selectionBar(ed, () => ed.frameView(activeView ?? 'perspective'));
+stage.append(selBar);
 function setView(name: ViewName) { activeView = name; ed.frameView(name); markViews(); }
 function markViews() { for (const [k, b] of Object.entries(viewBtns)) b.classList.toggle('on', k === activeView); }
 view.controls.addEventListener('start', () => { activeView = null; markViews(); });
@@ -184,6 +189,16 @@ function renameView(v: CameraView) {
   setTimeout(() => { input.focus(); input.select(); });
 }
 
+/** Clearing is undoable, but a whole composition deserves one confirmation. */
+function confirmClear() {
+  const n = ed.state.items.length;
+  if (!n) return;
+  const close = modal('Vider la composition ?', h('p', { style: 'margin:0;color:var(--muted)' }, `${n} objet${n > 1 ? 's' : ''} ser${n > 1 ? 'ont' : 'a'} retiré${n > 1 ? 's' : ''}. Les vues, la bibliothèque et vos fichiers ne changent pas, et Annuler rétablit tout.`), [
+    button('Annuler', { onClick: () => close() }),
+    button('Vider', { class: 'primary danger-fill', onClick: () => { close(); ed.clear(); } }),
+  ]);
+}
+
 function contextMenu(id: string | null, x: number, y: number) {
   if (id && !ed.selection.includes(id)) ed.select([id]);
   const has = ed.selection.length > 0;
@@ -194,10 +209,16 @@ function contextMenu(id: string | null, x: number, y: number) {
     { label: ed.selected.every(i => i.locked) ? 'Déverrouiller' : 'Verrouiller', icon: 'lock', run: () => ed.toggleLock() },
     { label: 'Cadrer', icon: 'frame', kbd: 'F', run: () => ed.frameView(activeView ?? 'perspective') },
     'sep',
+    { label: 'Sélectionner les mêmes', icon: 'select', run: () => ed.selectSimilar() },
+    { label: 'Ajouter ce qui est posé dessus', icon: 'layers', run: () => ed.selectSupported() },
+    'sep',
     { label: 'Supprimer', icon: 'trash', danger: true, kbd: isMac ? '⌫' : 'Suppr', run: () => ed.remove() },
   ] : [
+    { label: 'Tout sélectionner', icon: 'select', kbd: kbd('Mod+A'), disabled: !ed.state.items.length, run: () => ed.select(ed.state.items.map(i => i.id), 'single') },
     { label: 'Mémoriser ce point de vue', icon: 'camera', run: () => ed.addView() },
     { label: 'Tout cadrer', icon: 'frame', kbd: 'F', run: () => view.frame(activeView ?? 'perspective') },
+    'sep',
+    { label: 'Vider la composition…', icon: 'trash', danger: true, disabled: !ed.state.items.length, run: () => confirmClear() },
   ]);
 }
 
@@ -272,12 +293,14 @@ function settleTemplate() {
     if (gen !== ed.doc.generation || !ed.state.items.length) return;
     if (view.busy) { setTimeout(finish, 200); return; }
     ed.surfacesChanged([]);
+    // Compute the default views without moving the camera the person may already be using.
+    const current = view.currentView();
     const views: CameraView[] = [];
     for (const [name, dir] of [['Ensemble', 'perspective'], ['Face', 'front'], ['Dessus', 'top']] as const) {
       view.frame(dir, undefined, true);
       views.push({ id: crypto.randomUUID(), name, ...view.currentView() });
     }
-    view.frame('perspective', undefined, true);
+    view.applyView(current, true);
     ed.doc.amend(s => ({ ...s, views }));
   };
   setTimeout(finish, 300);
@@ -347,6 +370,7 @@ function present(on: boolean) {
   document.body.classList.toggle('presenting', on);
   view.helpersVisible = !on;
   viewsBar.style.display = shots.style.display = on ? 'none' : '';
+  selBar.classList.toggle('hidden', on);
   if (on) { ed.setSelection([]); presentIndex = -1; renderPresentBar(); if (ed.state.views.length) goto(0); else view.frame('perspective'); }
   view.invalidate();
 }

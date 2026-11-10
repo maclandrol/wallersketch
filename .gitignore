@@ -5,3 +5,4 @@ release/
 e2e-shots/
 .DS_Store
 *.log
+.claude/

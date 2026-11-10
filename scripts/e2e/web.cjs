@@ -48,6 +48,8 @@ const check = (cond, label) => { console.log(`  ${cond ? '✔' : '✖'} ${label}
       await page.locator('.cat', { hasText: 'Tables' }).tap();
       await page.locator('.card', { hasText: 'Table 180 × 75' }).tap();
       check((await items()).some(i => i.type === 'table'), 'tapping a card adds a table');
+      const selBar = await page.locator('.sel-bar').boundingBox();
+      check(selBar && selBar.x >= 0 && selBar.x + selBar.width <= page.viewportSize().width, 'the selection bar fits on screen');
       if (portrait) {
         await page.waitForTimeout(300);
         check(!(await page.locator('aside.left').isVisible()), 'portrait: the drawer closes after adding');

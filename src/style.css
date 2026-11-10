@@ -201,7 +201,7 @@ main.stage canvas { display: block; outline: none; touch-action: none; }
 .views-bar { left: 12px; bottom: 12px; }
 .views-bar .btn { height: 30px; font-size: 12px; padding: 0 9px; }
 .views-bar .btn.on { background: var(--text); color: #fff; }
-.sel-bar { top: 12px; left: 50%; transform: translateX(-50%); }
+.sel-bar { top: 12px; left: 50%; transform: translateX(-50%); align-items: center; max-width: calc(100% - 24px); }
 .sel-bar .btn { height: 30px; font-size: 12px; }
 .sel-bar .sep, .views-bar .sep { width: 1px; background: var(--line); margin: 5px 3px; }
 .shots { right: 12px; bottom: 12px; max-width: calc(100% - 420px); align-items: center; }
@@ -232,7 +232,7 @@ main.stage canvas { display: block; outline: none; touch-action: none; }
 .present-bar.idle { opacity: 0; }
 
 /* ------------------------------------------------------------- popovers */
-.menu-pop { position: fixed; z-index: 50; min-width: 220px; background: var(--raised); border-radius: 10px; box-shadow: var(--shadow-pop); padding: 5px; border: 1px solid var(--line); }
+.menu-pop { position: fixed; z-index: 50; min-width: 220px; overflow-y: auto; overscroll-behavior: contain; background: var(--raised); border-radius: 10px; box-shadow: var(--shadow-pop); padding: 5px; border: 1px solid var(--line); }
 .menu-item { display: flex; align-items: center; gap: 9px; width: 100%; height: 30px; padding: 0 9px; border: 0; background: none; border-radius: 6px; text-align: left; }
 .menu-item:hover:not(:disabled), .menu-item:focus-visible { background: var(--bg); outline: none; }
 .menu-item:disabled { color: var(--faint); }
@@ -339,3 +339,16 @@ html.web, .web body { touch-action: manipulation; overscroll-behavior: none; }
 @media (max-width: 700px) {
   .shots { display: none; }
 }
+
+.marquee { position: absolute; z-index: 3; border: 1.5px solid var(--select); background: var(--select-soft); border-radius: 3px; pointer-events: none; }
+
+.sel-bar.hidden { display: none !important; }
+.sel-bar .sel-label { padding: 0 8px 0 10px; font-weight: 500; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.sel-bar .btn.on .icon { color: var(--select); }
+.box-tool canvas { cursor: crosshair; }
+.outline-head { display: flex; align-items: center; gap: 4px; padding: 10px 10px 4px 14px; font-size: 12px; color: var(--muted); }
+.outline-head span { flex: 1; }
+.btn.danger-fill { background: var(--danger); color: #fff; }
+.btn.danger-fill:hover:not(:disabled) { background: #a5281f; }
+
+.guide-label { position: absolute; z-index: 3; transform: translateX(-50%); pointer-events: none; background: var(--select); color: #fff; font-size: 11.5px; font-weight: 500; padding: 4px 8px; border-radius: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }

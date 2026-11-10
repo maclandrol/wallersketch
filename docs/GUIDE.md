@@ -24,9 +24,19 @@ WallerSketch sert à composer une table cocktail en 3D, à la présenter au clie
 - **Glisser** un objet le déplace sur la surface située sous le curseur. Ce qui est posé dessus le suit.
 - **Glisser la nappe** déplace toute la table habillée. Avec **Alt**, seule la nappe bouge.
 - Pour tourner un objet, faites glisser la **pastille bleue** de l'anneau, ou appuyez sur **R**. La rotation se cale par pas de 15° ; avec **Alt**, elle est libre.
-- Le bouton **Grille** cale les positions sur 1, 5 ou 10 cm, en partant de l'angle du support. Pendant un déplacement, **Alt** déplace librement.
+- Pendant un déplacement, l'objet se cale sur les bords et le centre de son support et des objets voisins : une ligne bleue montre l'alignement trouvé et une étiquette donne la distance aux bords du support. Sinon, le bouton **Grille** cale les positions sur 1, 5 ou 10 cm, en partant de l'angle du support. **Alt** déplace librement.
 - Les **flèches** déplacent la sélection de 1 cm, ou de 10 cm avec Maj.
 - Le **clic droit** ouvre le menu : dupliquer, grouper, verrouiller, supprimer.
+- Un **double-clic** sur un objet le cadre, avec ce qui est posé dessus.
+
+### Travailler sur plusieurs objets
+
+- **Maj + clic** ajoute un objet à la sélection ou l'en retire.
+- Pour sélectionner une zone, activez **Sélection** dans la barre du bas puis tracez un cadre, ou faites **Maj + glisser** depuis un endroit vide. Seuls les objets entièrement dans le cadre sont pris : la table sur laquelle ils sont posés reste en dehors.
+- Ce qui est sélectionné reste net et le reste de la scène s'estompe, pour mieux voir ce que l'on modifie.
+- Une barre apparaît en haut de la vue avec ce qui est sélectionné (« 12 × Blue Lagoon ») et les actions communes : dupliquer, pivoter, **aligner** (à gauche, au centre, au fond…) ou **répartir** à intervalles égaux, **remplacer** des cocktails ou des verres par un autre sans les déplacer, grouper, verrouiller, cadrer et supprimer.
+- **Étendre la sélection** propose **Sélectionner les mêmes** (tous les cocktails identiques, par exemple) et **Ajouter ce qui est posé dessus**.
+- Pour repartir de zéro, **Vider la composition…** se trouve dans le menu Fichier, le clic droit sur un endroit vide et l'onglet **Scène**. Une confirmation est demandée et l'action s'annule comme les autres.
 
 ### Apparence
 
@@ -116,4 +126,7 @@ Deux fonctions restent réservées à l'ordinateur : l'import de fichiers CAO ST
 | Vue 3/4 / face / dessus | 1 / 2 / 3 | 1 / 2 / 3 |
 | Cadrer | F | F |
 | Tourner de 15° | R (Maj+R : sens inverse) | R (Maj+R : sens inverse) |
+| Tout sélectionner | ⌘A | Ctrl+A |
+| Sélectionner une zone | Maj + glisser | Maj + glisser |
+| Désélectionner | Échap | Échap |
 | Supprimer | ⌫ | Suppr |

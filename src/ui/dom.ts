@@ -135,22 +135,39 @@ export function toggle(label: string, get: () => boolean, set: (v: boolean) => v
   return { el, refresh };
 }
 
+let lastClosed: { anchor: unknown; at: number } | null = null;
+
 export function menu(anchor: HTMLElement | { x: number; y: number }, items: ({ label: string; icon?: string; kbd?: string; danger?: boolean; disabled?: boolean; run: () => void } | 'sep')[]) {
+  // A second click on the button that opened the menu closes it instead of reopening it.
+  if (lastClosed && lastClosed.anchor === anchor && performance.now() - lastClosed.at < 400) { lastClosed = null; return; }
   document.querySelector('.menu-pop')?.remove();
   const pop = h('div', { class: 'menu-pop', role: 'menu' });
+  // Every way of closing (item chosen, click outside, Escape) removes the listeners too.
+  function dismiss() { pop.remove(); removeEventListener('pointerdown', close, true); removeEventListener('keydown', esc, true); }
   for (const it of items) {
     if (it === 'sep') { pop.append(h('div', { class: 'menu-sep' })); continue; }
-    pop.append(h('button', { type: 'button', role: 'menuitem', class: 'menu-item' + (it.danger ? ' danger' : ''), disabled: it.disabled, onClick: () => { pop.remove(); it.run(); } }, it.icon ? icon(it.icon, 16) : h('span', { class: 'icon-space' }), h('span', null, it.label), it.kbd ? h('kbd', null, it.kbd) : null));
+    pop.append(h('button', { type: 'button', role: 'menuitem', class: 'menu-item' + (it.danger ? ' danger' : ''), disabled: it.disabled, onClick: () => { dismiss(); it.run(); } }, it.icon ? icon(it.icon, 16) : h('span', { class: 'icon-space' }), h('span', null, it.label), it.kbd ? h('kbd', null, it.kbd) : null));
   }
   document.body.append(pop);
   const r = anchor instanceof HTMLElement ? anchor.getBoundingClientRect() : { left: anchor.x, bottom: anchor.y, right: anchor.x, top: anchor.y };
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
-  let x = anchor instanceof HTMLElement ? r.right - pw : r.left, y = r.bottom + 6;
-  if (y + ph > innerHeight - 8) y = Math.max(8, r.top - ph - 6);
+  // Open below the anchor, or above when there is clearly more room there. A long menu
+  // scrolls within that space and never covers the button that opened it.
+  const below = innerHeight - r.bottom - 14, above = r.top - 14;
+  const down = ph <= below || below >= above;
+  const max = Math.max(120, down ? below : above);
+  pop.style.maxHeight = max + 'px';
+  const height = Math.min(ph, max);
+  const y = down ? r.bottom + 6 : r.top - height - 6;
+  let x = anchor instanceof HTMLElement ? r.right - pw : r.left;
   x = Math.max(8, Math.min(x, innerWidth - pw - 8));
-  pop.style.left = x + 'px'; pop.style.top = y + 'px';
-  const close = (e: Event) => { if (!pop.contains(e.target as Node)) { pop.remove(); removeEventListener('pointerdown', close, true); removeEventListener('keydown', esc, true); } };
-  const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { pop.remove(); removeEventListener('pointerdown', close, true); } };
+  pop.style.left = x + 'px'; pop.style.top = Math.max(8, y) + 'px';
+  const close = (e: Event) => {
+    if (pop.contains(e.target as Node)) return;
+    if (anchor instanceof HTMLElement && anchor.contains(e.target as Node)) lastClosed = { anchor, at: performance.now() };
+    dismiss();
+  };
+  const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') dismiss(); };
   setTimeout(() => { addEventListener('pointerdown', close, true); addEventListener('keydown', esc, true); });
   (pop.querySelector('button:not([disabled])') as HTMLElement | null)?.focus({ preventScroll: true });
 }
