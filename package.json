@@ -1,6 +1,6 @@
 {
   "name": "wallersketch",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "Design cocktail-table installations in 3D: tables, presentoirs, draped fabrics, glasses and cocktails.",
   "author": {
     "name": "maclandrol",
@@ -25,7 +25,10 @@
     "e2e": "node build.mjs && node scripts/e2e/run.cjs",
     "bench": "node build.mjs && node scripts/e2e/run.cjs - scripts/bench.cjs",
     "icon": "node scripts/e2e/run.cjs - scripts/icon.cjs",
-    "docs": "tsx scripts/recipes-doc.ts"
+    "docs": "tsx scripts/recipes-doc.ts",
+    "build:web": "node build.mjs --web",
+    "serve:web": "node build.mjs --web && node scripts/serve.mjs dist-web",
+    "e2e:web": "node build.mjs --web && node scripts/e2e/web.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",

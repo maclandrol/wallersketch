@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.0 (10 November 2026)
+
+- WallerSketch now runs on iPad and Android tablets as a web app at maclandrol.github.io/wallersketch. Added to the home screen, it opens full screen and works offline.
+- Touch: tap to add from the library, long press for the context menu, a larger rotation handle. In portrait the library and properties open as drawers.
+- On the tablet, projects open and save through the Files app, and images, plans and 3D files go through the share sheet. The library, recovery and API keys stay on the device.
+- Duplicating a tablecloth that lies on a table now duplicates the whole dressed table, as dragging it already did.
+
 ## 2.0.2 (7 November 2026)
 
 - Assistant: the first tab is now a guided copy and paste for ChatGPT, DeepSeek or Claude in the browser or phone app. One button copies the request and opens the site, another reads the answer from the clipboard.

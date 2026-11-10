@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-web/
 release/
 e2e-shots/
 .DS_Store

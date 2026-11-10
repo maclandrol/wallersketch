@@ -11,13 +11,20 @@ import { button, h, isTyping, menu, modal, toast } from './ui/dom';
 import { icon } from './ui/icons';
 import { isMac, kbd, mod, platformClass } from './ui/platform';
 import { AgentBridge } from './agent';
+import { webNative } from './web/native';
 import { openAssistant } from './ui/assistant';
 import { openDrinkBuilder } from './ui/drinkBuilder';
 
 declare global { interface Window { native: Native; studio: unknown } }
 
 const app = document.getElementById('app')!;
-document.documentElement.classList.add(platformClass());
+// In a browser (tablet / web build) the desktop bridge is replaced by a browser one.
+if (!window.native) window.native = webNative();
+const web = !!window.native.web;
+document.documentElement.classList.add(web ? 'web' : platformClass());
+if (matchMedia('(pointer: coarse)').matches) document.documentElement.classList.add('touch');
+// Works offline once installed on a tablet's home screen.
+if (web && location.protocol === 'https:' && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 
 // ------------------------------------------------------------------ layout
 const stage = h('main', { class: 'stage' });
@@ -50,12 +57,22 @@ const saveState = h('span', { class: 'save-state' });
 const undoBtn = button(null, { icon: 'undo', title: `Annuler (${kbd('Mod+Z')})`, onClick: () => action('undo') });
 const redoBtn = button(null, { icon: 'redo', title: `Rétablir (${kbd(isMac ? 'Mod+Shift+Z' : 'Mod+Y')})`, onClick: () => action('redo') });
 const moreBtn = button(null, { icon: 'more', title: 'Fichier', onClick: () => fileMenu(moreBtn) });
+// Narrow screens (a tablet in portrait): side panels become drawers opened from the top bar.
+const leftBtn = button(null, { icon: 'layers', title: 'Bibliothèque et scène', class: 'drawer-btn', onClick: () => toggleDrawer('left') });
+const rightBtn = button(null, { icon: 'pencil', title: 'Propriétés', class: 'drawer-btn', onClick: () => toggleDrawer('right') });
+function toggleDrawer(side: 'left' | 'right', open?: boolean) {
+  const cls = side + '-open', on = open ?? !app.classList.contains(cls);
+  app.classList.toggle(cls, on);
+  if (on) app.classList.remove((side === 'left' ? 'right' : 'left') + '-open');
+}
 top.append(
+  leftBtn,
   h('div', { class: 'brand' }, h('img', { class: 'mark', src: 'icon.png', alt: '' }), h('span', { class: 'word' }, 'WallerSketch')),
   h('div', { class: 'doc-title' }, title, saveState),
   h('div', { class: 'spacer' }),
   h('div', { class: 'top-group' }, undoBtn, redoBtn),
   h('div', { class: 'top-group' }, button('Assistant', { icon: 'sparkle', title: 'Créer des éléments avec Claude ou ChatGPT', onClick: () => openAssistant(ed) })),
+  rightBtn,
   h('div', { class: 'top-group' }, button('Présenter', { icon: 'play', title: `Présenter (${kbd('Mod+Enter')})`, onClick: () => present(true) }), button('Exporter', { icon: 'export', class: 'primary', onClick: () => exportDialog() }), moreBtn),
 );
 
@@ -75,6 +92,7 @@ function fileMenu(anchor: HTMLElement) {
 
 // ------------------------------------------------------------------ side panels
 const library = new LibraryPanel(ed, stage, () => openDrinkBuilder(ed));
+library.onAdded = () => { if (matchMedia('(max-width: 1100px)').matches) toggleDrawer('left', false); };
 const outline = new OutlinePanel(ed);
 let leftTab: 'library' | 'scene' = 'library';
 const tabs = h('div', { class: 'tabs', role: 'tablist' });

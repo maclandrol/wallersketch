@@ -26,6 +26,8 @@ export class LibraryPanel {
   private list = h('div', { class: 'scroll' });
   private catsEl = h('div', { class: 'cats' });
   private searchInput = h('input', { type: 'search', placeholder: 'Rechercher', spellcheck: false });
+  /** Narrow screens close the library drawer once something is added. */
+  onAdded?: () => void;
 
   constructor(private ed: Editor, private stage: HTMLElement, private newDrink: () => void) {
     try { this.cat = localStorage.getItem('library-cat') || 'table'; } catch { /* default */ }
@@ -122,14 +124,18 @@ export class LibraryPanel {
       const up = (ev: PointerEvent) => {
         removeEventListener('pointermove', move);
         removeEventListener('pointerup', up);
+        removeEventListener('pointercancel', up);
+        // The browser took over the gesture (a scroll on a touch screen): neither add nor drop.
+        if (ev.type === 'pointercancel') { ghost?.remove(); this.stage.classList.remove('dragging'); this.ed.view.clearGhosts(); return; }
         ghost?.remove();
         this.stage.classList.remove('dragging');
         this.ed.view.clearGhosts();
-        if (!dragging) { e.add(); return; }
-        if (over) { const p = this.ed.view.dropPoint(ev.clientX, ev.clientY, e.type).point; e.add([p.x, 0, p.z]); }
+        if (!dragging) { e.add(); this.onAdded?.(); return; }
+        if (over) { const p = this.ed.view.dropPoint(ev.clientX, ev.clientY, e.type).point; e.add([p.x, 0, p.z]); this.onAdded?.(); }
       };
       addEventListener('pointermove', move);
       addEventListener('pointerup', up);
+      addEventListener('pointercancel', up);
     });
   }
 }

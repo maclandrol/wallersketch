@@ -39,11 +39,12 @@ export function openAssistant(ed: Editor) {
   const close = modal('Assistant de création', body, [], { wide: true });
   const show = (t: Tab) => {
     lastTab = t;
-    tabs.replaceChildren(...([['chat', 'ChatGPT, DeepSeek…'], ['api', 'Clé API'], ['local', 'Agents locaux']] as const).map(([id, label]) =>
+    const list = ([['chat', 'ChatGPT, DeepSeek…'], ['api', 'Clé API'], ['local', 'Agents locaux']] as const).filter(([id]) => !(ed.native.web && id === 'local'));
+    tabs.replaceChildren(...list.map(([id, label]) =>
       h('button', { type: 'button', class: 'seg' + (t === id ? ' on' : ''), onClick: () => show(id) }, label)));
     pane.replaceChildren(t === 'chat' ? chatPane(ed, close) : t === 'api' ? askPane(ed, close) : localPane(ed));
   };
-  show(lastTab);
+  show(ed.native.web && lastTab === 'local' ? 'chat' : lastTab);
 }
 
 /** Preview compiled recipes; the operator chooses to keep them, place them, or not. */
@@ -115,7 +116,7 @@ function askPane(ed: Editor, close: () => void): HTMLElement {
     if (!model.value || model.dataset.auto) { model.value = k.chosen.provider === p && k.chosen.model ? k.chosen.model : k.models[p]; model.dataset.auto = '1'; }
     const input = h('input', { class: 'select', type: 'password', placeholder: { anthropic: 'Clé API Claude (sk-ant-…)', openai: 'Clé API OpenAI (sk-…)', deepseek: 'Clé API DeepSeek (sk-…)' }[p], style: 'flex:1' });
     keyRow.replaceChildren(k[p]
-      ? h('div', { class: 'note', style: 'margin:0;display:flex;gap:8px;align-items:center' }, icon('lock', 14), 'Clé enregistrée, chiffrée par le système.', button('Changer', { class: 'small', onClick: async () => { await ed.native.assistantSetKey(p, ''); refreshKeys(); } }))
+      ? h('div', { class: 'note', style: 'margin:0;display:flex;gap:8px;align-items:center' }, icon('lock', 14), ed.native.web ? 'Clé enregistrée sur cet appareil.' : 'Clé enregistrée, chiffrée par le système.', button('Changer', { class: 'small', onClick: async () => { await ed.native.assistantSetKey(p, ''); refreshKeys(); } }))
       : h('div', { class: 'stack', style: 'gap:6px' },
         h('div', { style: 'display:flex;gap:6px' }, input, button('Enregistrer', { class: 'outline', onClick: async () => { try { await ed.native.assistantSetKey(p, input.value); refreshKeys(); } catch (e) { toast(String((e as Error).message), 'error'); } } })),
         h('div', { class: 'hint' }, 'Une clé API se crée sur le site du fournisseur et se paie à l’usage, séparément de l’abonnement ChatGPT. ', h('a', { href: '#', onClick: (e: Event) => { e.preventDefault(); ed.native.openExternal(KEY_PAGES[p]); } }, 'Créer une clé'), '. Sans clé, utilisez l’onglet « ChatGPT, DeepSeek… ».')));

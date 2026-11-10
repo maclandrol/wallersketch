@@ -32,7 +32,7 @@ kbd { font: 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: v
 body.scrubbing, body.scrubbing * { cursor: ew-resize !important; }
 :focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
 
-#app { display: grid; grid-template: var(--top) 1fr / var(--left) 1fr var(--right); height: 100vh; }
+#app { display: grid; grid-template: var(--top) 1fr / var(--left) 1fr var(--right); height: 100vh; height: 100dvh; }
 #app.presenting { grid-template: 0 1fr / 0 1fr 0; }
 #app.presenting > header, #app.presenting > aside { visibility: hidden; }
 #app.left-closed { grid-template-columns: 0 1fr var(--right); }
@@ -195,7 +195,7 @@ select.select { height: 30px; border: 1px solid var(--line); border-radius: 7px;
 .inv-group h4 { margin: 6px 0 2px; font-size: 11px; color: var(--faint); font-weight: 500; }
 
 /* ------------------------------------------------------------- stage */
-main.stage { position: relative; min-width: 0; min-height: 0; background: #ece9e3; }
+main.stage { position: relative; min-width: 0; min-height: 0; background: #ece9e3; grid-column: 2; grid-row: 2; }
 main.stage canvas { display: block; outline: none; touch-action: none; }
 .float { position: absolute; z-index: 2; display: flex; gap: 2px; background: rgba(255, 255, 255, .92); backdrop-filter: blur(12px); border-radius: 11px; box-shadow: var(--shadow); padding: 3px; border: 1px solid rgba(0, 0, 0, .04); }
 .views-bar { left: 12px; bottom: 12px; }
@@ -304,3 +304,38 @@ input.select { padding: 0 10px; }
 .chat-step { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--raised); }
 .chat-num { width: 24px; height: 24px; border-radius: 50%; background: var(--text); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 600; flex: none; }
 .hint a { color: var(--select); }
+
+/* ------------------------------------------------------------- web, tablet and touch */
+.web header.top { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+.web body, .web #app { padding-bottom: env(safe-area-inset-bottom); }
+html.web, .web body { touch-action: manipulation; overscroll-behavior: none; }
+.drawer-btn { display: none; }
+.touch .card { touch-action: pan-y; }
+.touch .card .remove, .touch .row .lock { opacity: 1; }
+.touch .btn { min-height: 36px; }
+.touch .btn.icon-only { width: 36px; height: 36px; }
+.touch .swatch, .touch .custom-wrap { width: 28px; height: 28px; }
+.touch .menu-item { height: 40px; }
+@media (max-width: 1300px) {
+  .views-bar .btn span { display: none; }
+  .views-bar .btn { width: 34px; padding: 0; }
+  .shots { max-width: calc(100% - 260px); }
+}
+@media (max-width: 1100px) {
+  #app { grid-template-columns: 0 1fr 0; }
+  #app > aside { position: fixed; top: var(--top); bottom: 0; z-index: 6; width: min(340px, 86vw); box-shadow: var(--shadow-pop); transition: transform .22s ease, visibility .22s; visibility: hidden; }
+  #app > aside.left { left: 0; transform: translateX(-102%); }
+  #app > aside.right { right: 0; transform: translateX(102%); }
+  #app.left-open > aside.left, #app.right-open > aside.right { transform: none; visibility: visible; }
+  .drawer-btn { display: inline-flex; }
+  .brand .word, .save-state { display: none; }
+  .doc-title { border-left: 0; padding-left: 0; }
+  .doc-title input { max-width: 180px; }
+  .top-group .btn span { display: none; }
+  .top-group .btn { width: 36px; padding: 0; }
+  .shots { max-width: calc(100% - 300px); }
+}
+@media (max-width: 700px) {
+  .views-bar .btn span { display: none; }
+  .shots { display: none; }
+}

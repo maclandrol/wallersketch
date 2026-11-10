@@ -43,13 +43,14 @@ In the **Clé API** tab, WallerSketch sends the request itself and reads the ans
 - Default models: `gpt-5`, `deepseek-chat` and `claude-opus-5-5`. You can type another model name.
 
 What happens to your data:
-- The key is encrypted with the system keychain (macOS Keychain, Windows DPAPI, Linux secret store). Only the desktop process reads it; the app window has no network access.
+- On the desktop app, the key is encrypted with the system keychain (macOS Keychain, Windows DPAPI, Linux secret store). Only the desktop process reads it; the app window has no network access.
+- On the tablet version, the key is stored in the browser's storage on that device and sent only to the provider you chose.
 - Each request sends your description, a summary of the composition, the recipe instructions and the photo if you attached one. Nothing is sent until you click **Créer**.
 - If recipes come back with problems, the app sends the errors back once so the model can fix them.
 
 ## 3. Local agents through MCP (advanced)
 
-This is for assistants installed on the same computer that can drive applications through the [Model Context Protocol](https://modelcontextprotocol.io): Claude Desktop, Claude Code, Codex and similar tools. ChatGPT and DeepSeek in a browser or on a phone cannot connect this way; use route 1 for them.
+This needs the desktop app. It is for assistants installed on the same computer that can drive applications through the [Model Context Protocol](https://modelcontextprotocol.io): Claude Desktop, Claude Code, Codex and similar tools. ChatGPT and DeepSeek in a browser or on a phone cannot connect this way; use route 1 for them.
 
 1. In the **Agents locaux** tab, turn on **Autoriser les assistants de cet ordinateur**.
 2. Copy the configuration shown for your tool. It contains the right paths for your computer:

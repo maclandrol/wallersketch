@@ -14,6 +14,9 @@ import { footprintCorners, holdsLiquid, isSupport, withDescendants } from '../co
 import { SurfaceIndex } from '../core/heightfield';
 import { glassFootRadius, glassProfile } from '../core/glassware';
 
+/** Pointer capture can fail when the pointer is already gone (a touch that ended): ignore that. */
+function grabPointer(el: Element, id: number) { try { el.setPointerCapture(id); } catch { /* pointer gone */ } }
+
 export interface ViewportEvents {
   select(ids: string[], mode: 'replace' | 'toggle' | 'single'): void;
   /** Live drag of the selection; `final` closes the undo step. */
@@ -86,6 +89,7 @@ export class Viewport {
   private anim?: { from: [THREE.Vector3, THREE.Vector3]; to: [THREE.Vector3, THREE.Vector3]; t0: number; ms: number };
   private size = { w: 1, h: 1 };
   helpersVisible = true;
+  private coarse = matchMedia('(pointer: coarse)').matches;
 
   constructor(private host: HTMLElement, private events: ViewportEvents) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
@@ -596,7 +600,8 @@ export class Viewport {
       this.ring.scale.setScalar(r);
       // Knob keeps a constant on-screen size; it sits on the ring at the front-right.
       const knob = this.ring.children[1];
-      knob.scale.setScalar((this.camera.position.distanceTo(this.ring.position) * 0.008) / (r * 0.045));
+      // Finger-sized on touch screens.
+      knob.scale.setScalar((this.camera.position.distanceTo(this.ring.position) * (this.coarse ? 0.016 : 0.008)) / (r * 0.045));
       this.ring.visible = true;
     } else this.ring.visible = false;
   }
@@ -702,6 +707,24 @@ export class Viewport {
 
   private bindPointer() {
     const el = this.renderer.domElement;
+    // Touch: a long press opens the context menu (there is no right click on a tablet).
+    let press: { timer: number; x: number; y: number } | null = null;
+    const cancelPress = () => { if (press) { clearTimeout(press.timer); press = null; } };
+    el.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'touch') return;
+      cancelPress();
+      const x = e.clientX, y = e.clientY;
+      press = { x, y, timer: window.setTimeout(() => {
+        press = null;
+        if (this.pointer && this.pointer.mode !== 'pending' && this.pointer.mode !== 'orbit') return;
+        this.pointer = undefined;
+        this.controls.enabled = true;
+        this.events.contextMenu(this.itemAt(x, y), x, y);
+      }, 550) };
+    });
+    el.addEventListener('pointermove', e => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelPress(); });
+    el.addEventListener('pointerup', cancelPress);
+    el.addEventListener('pointercancel', cancelPress);
     el.addEventListener('pointerdown', e => {
       if (e.button !== 0 || this.pointer) return;
       el.focus();
@@ -712,7 +735,7 @@ export class Viewport {
         const c = this.ring.position, ang = this.pointerAngle(e.clientX, e.clientY, c);
         this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'rotate', ids: this.selection.filter(id => !this.entries.get(id)?.item.locked), anchor: c.clone(), plane: new THREE.Plane(), last: [0, 0, 0], start: 0, pivot: [c.x, c.y, c.z], startAngle: ang, lastYaw: 0, additive: false };
         this.controls.enabled = false;
-        el.setPointerCapture(e.pointerId);
+        grabPointer(el, e.pointerId);
         return;
       }
       const id = this.itemAt(e.clientX, e.clientY);
@@ -732,7 +755,7 @@ export class Viewport {
       this.ray.ray.intersectPlane(this.pointer.plane, grab);
       this.pointer.anchor.sub(grab);
       this.controls.enabled = false;
-      el.setPointerCapture(e.pointerId);
+      grabPointer(el, e.pointerId);
     });
     el.addEventListener('pointermove', e => {
       const p = this.pointer;

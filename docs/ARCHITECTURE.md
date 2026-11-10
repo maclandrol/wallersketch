@@ -73,6 +73,18 @@ Collider edges are rounded by about one particle spacing, so triangles wrap a co
 - **Tower and imports:** the champagne tower is decor, not a support; imported models carry objects only when marked **Peut porter des objets**, and then act as their bounding box for cloth.
 - **MCP:** the app must be open for local agents to work.
 
+## Tablet and web version
+
+`node build.mjs --web` builds the same application into `dist-web/` for browsers. `src/web/native.ts` replaces the desktop bridge:
+- projects save as downloads and open through the file picker;
+- images, plans and 3D files go through the share sheet;
+- the personal library, recovery and API keys live in IndexedDB;
+- the assistant calls the provider APIs directly, since all three accept browser requests.
+
+A service worker precaches every file under a content hash, so the app works offline once added to the home screen and updates cleanly. On narrow screens the side panels become drawers, a long press replaces right click, and the rotation knob is finger-sized.
+
+STEP/IGES import and local MCP agents need the desktop app. The tablet build is tested in WebKit with iPad emulation (`scripts/e2e/web.cjs`) and published to GitHub Pages for each release tag.
+
 ## Performance
 
 Apple M5, development build, canvas 880 × 888 CSS px, after warm-up (`npm run bench`):

@@ -77,6 +77,26 @@ Cliquez sur **Exporter** :
   - OBJ ;
   - USDZ, qui s'ouvre en réalité augmentée sur iPhone et iPad : le client voit la table chez lui, à taille réelle.
 
+## Sur iPad ou tablette
+
+WallerSketch fonctionne aussi sur iPad et sur les tablettes Android, sans installation depuis un store.
+
+1. Ouvrez [maclandrol.github.io/wallersketch](https://maclandrol.github.io/wallersketch/) dans Safari (Chrome sur Android).
+2. Touchez le bouton Partager, puis **Sur l'écran d'accueil**.
+3. Lancez WallerSketch depuis son icône : l'application s'ouvre en plein écran et fonctionne ensuite sans connexion.
+
+Les gestes :
+- toucher une carte de la bibliothèque ajoute l'objet ; la faire glisser vers la scène le pose à l'endroit voulu ;
+- un doigt fait tourner la vue, deux doigts zooment et la déplacent ;
+- faire glisser un objet le déplace, la pastille bleue le fait pivoter ;
+- un appui long sur un objet ouvre le menu (dupliquer, grouper, verrouiller, supprimer).
+
+En mode portrait, la bibliothèque et les propriétés s'ouvrent avec les deux boutons en haut de l'écran.
+
+**Enregistrer** télécharge le fichier `.wsketch` dans l'app Fichiers, dossier Téléchargements. **Ouvrir** passe par l'app Fichiers. Les images et le plan coté s'exportent avec la feuille de partage : Photos, Fichiers, AirDrop ou WhatsApp. La bibliothèque personnelle et le travail en cours restent enregistrés sur la tablette.
+
+Deux fonctions restent réservées à l'ordinateur : l'import de fichiers CAO STEP et IGES, et les agents locaux (MCP).
+
 ## Fichiers
 
 - **Enregistrer** crée un fichier `.wsketch`. Il contient tout, y compris les modèles et les images importés, et s'ouvre donc tel quel sur un autre ordinateur.

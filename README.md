@@ -38,6 +38,9 @@ Get the latest version from the [releases page](https://github.com/maclandrol/wa
 | macOS | `.dmg` | The app is not notarized. The first time, right-click it and choose Open. |
 | Windows | `.exe` | If SmartScreen warns, choose More info, then Run anyway. |
 | Linux | `.AppImage` or `.deb` | Make the AppImage executable before running it. |
+| iPad and tablets | [maclandrol.github.io/wallersketch](https://maclandrol.github.io/wallersketch/) | Open it in Safari, tap Share, then Add to Home Screen. |
+
+The tablet version runs in the browser and works offline once added to the home screen. It has everything except STEP/IGES import and local MCP agents. Projects open from and save to the Files app, and exports go through the share sheet.
 
 The [user guide](docs/GUIDE.md) (French) covers the whole workflow.
 
@@ -61,10 +64,12 @@ npm start
 |---|---|
 | `npm test` | Unit tests |
 | `npm run e2e` | End-to-end tests in the real app |
+| `npm run e2e:web` | Tablet build in WebKit with iPad emulation |
+| `npm run serve:web` | Build and serve the tablet version locally |
 | `npm run bench` | Performance measurements |
 | `npm run typecheck` | TypeScript check |
 | `npm run pack:mac`, `pack:win`, `pack:linux` | Build packages into `release/` |
 | `npm run docs` | Regenerate `docs/RECIPES.md` |
 | `npm run icon` | Redraw the app icon |
 
-CI runs the tests on macOS, Windows and Linux. Tagged versions are built and tested on each system before they are published. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the app works and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licences.
+CI runs the tests on macOS, Windows and Linux, and the tablet build in WebKit. Tagged versions are built and tested on each system before they are published, and the tablet version is deployed to GitHub Pages. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the app works and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licences.

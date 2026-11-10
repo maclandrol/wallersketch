@@ -5,6 +5,9 @@ import { icon } from './icons';
 type Child = Node | string | null | undefined | false;
 type Props = Record<string, unknown> & { class?: string; style?: string };
 
+/** Pointer capture can fail when the pointer is already gone (a touch that ended): ignore that. */
+function grabPointer(el: Element, id: number) { try { el.setPointerCapture(id); } catch { /* pointer gone */ } }
+
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props | null = null, ...children: (Child | Child[])[]): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   if (props) for (const [k, v] of Object.entries(props)) {
@@ -72,7 +75,7 @@ export function numberField(label: string, opts: { get: () => number | null; set
     const v0 = opts.get();
     if (v0 === null) return;
     const x0 = e.clientX;
-    lab.setPointerCapture(e.pointerId);
+    grabPointer(lab, e.pointerId);
     document.body.classList.add('scrubbing');
     const mv = (ev: PointerEvent) => { const d = Math.round((ev.clientX - x0) / 3) * step * (ev.shiftKey ? 10 : 1); input.value = fmt(clamp(v0 * scale + d)); commit(true); };
     const up = () => { lab.removeEventListener('pointermove', mv); document.body.classList.remove('scrubbing'); commit(); };

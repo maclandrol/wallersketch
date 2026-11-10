@@ -10,6 +10,8 @@ import type { Compiled } from './core/recipes';
 import type { Viewport, ViewName } from './render/viewport';
 
 export interface Native {
+  /** Browser / tablet build: no local agents, no CAD conversion, files through the share sheet. */
+  web?: boolean;
   save(data: string, saveAs: boolean): Promise<{ path?: string; canceled?: boolean }>;
   open(): Promise<{ data?: string; path?: string; canceled?: boolean }>;
   loaded(path?: string): void;
@@ -310,6 +312,8 @@ export class Editor {
   }
 
   duplicate(ids = this.selection) {
+    // As when dragging: a cloth lying on a table stands for the whole dressed table.
+    ids = [...new Set(ids.map(id => { const i = this.item(id); return i?.type === 'fabric' && i.parentId && this.item(i.parentId)?.type === 'table' ? i.parentId : id; }))];
     const roots = this.roots(ids);
     if (!roots.length) return;
     const b = this.view.contentBounds(roots);
