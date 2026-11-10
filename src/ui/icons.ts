@@ -52,6 +52,7 @@ const P: Record<string, string> = {
   align: 'M3 3v14M6 5h9v3H6zM6 12h6v3H6z',
   swap: 'M4 7h11l-3-3M16 13H5l3 3',
   select: 'M4 3l11 6-5 1.5L8 16z',
+  keyboard: 'M2.5 5.5h15v9h-15zM5.5 8.5h.01M8.5 8.5h.01M11.5 8.5h.01M14.5 8.5h.01M6.5 11.5h7',
 };
 
 export function icon(name: string, size = 18): SVGSVGElement {

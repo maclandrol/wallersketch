@@ -18,7 +18,8 @@ A desktop app to plan cocktail tables in 3D. A barman friend asked me for it, to
 - Fabrics are simulated and drape over the table and risers
 - Objects sit on whatever is under them and move with it
 - Grids of glasses, alignment guides and snapping to a 1, 5 or 10 cm grid
-- Box selection, with align, distribute and replace on many objects at once
+- Box selection, with align, distribute, arrange in rows and replace on many objects at once
+- Keyboard camera controls and a shortcuts sheet (press ?)
 - Drink builder for your own cocktails
 - AI assistant (ChatGPT, DeepSeek or Claude) that creates assets from a description or a photo
 - Saved views, presentation mode, PNG export up to 4K

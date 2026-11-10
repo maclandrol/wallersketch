@@ -4,7 +4,7 @@
 import type { Editor } from '../editor';
 import { CATALOG, customEntries } from '../core/catalog';
 import { holdsLiquid } from '../core/scene';
-import { button, h, menu } from './dom';
+import { button, h, menu, numberField } from './dom';
 import { kbd } from './platform';
 
 const TYPE_NAMES: Record<string, [string, string]> = {
@@ -23,6 +23,38 @@ export function describeSelection(ed: Editor): string {
   return [...counts].map(([t, n]) => `${n} ${TYPE_NAMES[t][n > 1 ? 1 : 0]}`).join(', ');
 }
 
+/** Gap left between glasses when arranging them, and between larger objects. */
+const defaultGap = (ed: Editor) => (ed.selected.every(holdsLiquid) ? 0.02 : 0.05);
+
+/**
+ * Small panel under the selection bar: rows of N with a gap, applied live as one undo step.
+ * Stays open while the values change so the result is visible on the table.
+ */
+export function openArrange(ed: Editor, host: HTMLElement, columns?: number) {
+  host.querySelector('.arrange-pop')?.remove();
+  if (!ed.startArrange(columns !== undefined)) return;
+  const n = ed.selection.length;
+  const spec = { columns: columns ?? Math.ceil(Math.sqrt(n)), gap: defaultGap(ed) };
+  const merge = 'arrange' + performance.now();
+  const apply = () => ed.arrange(spec.columns, spec.gap, merge);
+  apply();
+  if (columns !== undefined) { ed.doc.seal(); return; }
+  const pop = h('div', { class: 'float arrange-pop', role: 'dialog', 'aria-label': 'Ranger en grille' });
+  const close = () => { pop.remove(); ed.doc.seal(); off(); removeEventListener('keydown', esc, true); };
+  // Enter in a field applies the value (the field handles it); Escape or Enter elsewhere closes.
+  const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' || (e.key === 'Enter' && !(e.target instanceof HTMLInputElement))) { e.stopPropagation(); close(); } };
+  const ids = ed.selection.join();
+  const off = ed.on(() => { if (ed.selection.join() !== ids) close(); });
+  pop.append(
+    h('strong', null, 'Ranger en grille'),
+    numberField('Par rangée', { get: () => spec.columns, set: v => { spec.columns = Math.round(v); apply(); }, unit: '', scale: 1, min: 1, max: n }).el,
+    numberField('Écart', { get: () => spec.gap, set: v => { spec.gap = v; apply(); }, min: 0, max: 100, step: 0.5 }).el,
+    button('Terminé', { class: 'primary small', onClick: close }),
+  );
+  host.append(pop);
+  addEventListener('keydown', esc, true);
+}
+
 export function selectionBar(ed: Editor, frame: () => void): HTMLElement {
   const label = h('span', { class: 'sel-label' });
   const bar = h('div', { class: 'float sel-bar', role: 'toolbar', 'aria-label': 'Sélection' });
@@ -38,6 +70,11 @@ export function selectionBar(ed: Editor, frame: () => void): HTMLElement {
     'sep',
     { label: 'Répartir de gauche à droite', disabled: ed.selection.length < 3, run: () => ed.distribute(0) },
     { label: 'Répartir du fond vers l’avant', disabled: ed.selection.length < 3, run: () => ed.distribute(1) },
+  ]));
+  const arrangeBtn = button(null, { icon: 'grid', title: 'Ranger en ligne ou en grille' });
+  arrangeBtn.addEventListener('click', () => menu(arrangeBtn, [
+    { label: 'Ranger en ligne', run: () => openArrange(ed, bar.parentElement!, ed.selection.length) },
+    { label: 'Ranger en grille…', run: () => openArrange(ed, bar.parentElement!) },
   ]));
   const swapBtn = button(null, { icon: 'swap', title: 'Remplacer par un autre cocktail ou verre' });
   swapBtn.addEventListener('click', () => {
@@ -61,7 +98,7 @@ export function selectionBar(ed: Editor, frame: () => void): HTMLElement {
     h('div', { class: 'sep' }),
     button(null, { icon: 'duplicate', title: `Dupliquer (${kbd('Mod+D')})`, onClick: () => ed.duplicate() }),
     button(null, { icon: 'rotate', title: 'Pivoter de 90° (R : 15°)', onClick: () => ed.rotate(ed.selection, -Math.PI / 2) }),
-    alignBtn, swapBtn, selectBtn, groupBtn, lockBtn,
+    alignBtn, arrangeBtn, swapBtn, selectBtn, groupBtn, lockBtn,
     button(null, { icon: 'frame', title: 'Cadrer (F)', onClick: frame }),
     h('div', { class: 'sep' }),
     button(null, { icon: 'trash', title: 'Supprimer', class: 'danger', onClick: () => ed.remove() }),
@@ -72,7 +109,7 @@ export function selectionBar(ed: Editor, frame: () => void): HTMLElement {
     bar.style.display = sel.length ? '' : 'none';
     if (!sel.length) return;
     label.textContent = describeSelection(ed);
-    alignBtn.style.display = sel.filter(i => i.type !== 'fabric').length > 1 ? '' : 'none';
+    alignBtn.style.display = arrangeBtn.style.display = sel.filter(i => i.type !== 'fabric').length > 1 ? '' : 'none';
     swapBtn.style.display = sel.every(holdsLiquid) ? '' : 'none';
     const grouped = sel.some(i => i.groupId);
     groupBtn.style.display = sel.length > 1 || grouped ? '' : 'none';

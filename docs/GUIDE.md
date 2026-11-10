@@ -24,7 +24,8 @@ WallerSketch sert à composer une table cocktail en 3D, à la présenter au clie
 - **Glisser** un objet le déplace sur la surface située sous le curseur. Ce qui est posé dessus le suit.
 - **Glisser la nappe** déplace toute la table habillée. Avec **Alt**, seule la nappe bouge.
 - Pour tourner un objet, faites glisser la **pastille bleue** de l'anneau, ou appuyez sur **R**. La rotation se cale par pas de 15° ; avec **Alt**, elle est libre.
-- Pendant un déplacement, l'objet se cale sur les bords et le centre de son support et des objets voisins : une ligne bleue montre l'alignement trouvé et une étiquette donne la distance aux bords du support. Sinon, le bouton **Grille** cale les positions sur 1, 5 ou 10 cm, en partant de l'angle du support. **Alt** déplace librement.
+- L'objet reste sous le curseur, à l'endroit où vous l'avez saisi. Pour un verre, un clic juste à côté suffit à le prendre.
+- Pendant un déplacement, l'objet se cale sur les bords et le centre de son support et des objets voisins : une ligne bleue montre l'alignement trouvé et une étiquette donne la distance aux bords du support. Sinon, le bouton **Grille** cale les positions sur 1, 5 ou 10 cm, en partant de l'angle du support. Les verres, plus petits, se calent toujours au centimètre. **Alt** déplace librement.
 - Les **flèches** déplacent la sélection de 1 cm, ou de 10 cm avec Maj.
 - Le **clic droit** ouvre le menu : dupliquer, grouper, verrouiller, supprimer.
 - Un **double-clic** sur un objet le cadre, avec ce qui est posé dessus.
@@ -33,7 +34,8 @@ WallerSketch sert à composer une table cocktail en 3D, à la présenter au clie
 
 - **Maj + clic** ajoute un objet à la sélection ou l'en retire.
 - Pour sélectionner une zone, activez **Sélection** dans la barre du bas puis tracez un cadre, ou faites **Maj + glisser** depuis un endroit vide. Seuls les objets entièrement dans le cadre sont pris : la table sur laquelle ils sont posés reste en dehors.
-- Ce qui est sélectionné reste net et le reste de la scène s'estompe, pour mieux voir ce que l'on modifie.
+- Ce qui est sélectionné reste net, dessiné par-dessus le reste, et la scène s'estompe autour : un verre sélectionné au milieu des autres se repère tout de suite.
+- **Ranger** met les objets sélectionnés en ligne, ou en grille avec le nombre par rangée et l'écart de votre choix. Le rangement reste centré là où se trouvaient les objets et se règle en direct ; une seule annulation le défait.
 - Une barre apparaît en haut de la vue avec ce qui est sélectionné (« 12 × Blue Lagoon ») et les actions communes : dupliquer, pivoter, **aligner** (à gauche, au centre, au fond…) ou **répartir** à intervalles égaux, **remplacer** des cocktails ou des verres par un autre sans les déplacer, grouper, verrouiller, cadrer et supprimer.
 - **Étendre la sélection** propose **Sélectionner les mêmes** (tous les cocktails identiques, par exemple) et **Ajouter ce qui est posé dessus**.
 - Pour repartir de zéro, **Vider la composition…** se trouve dans le menu Fichier, le clic droit sur un endroit vide et l'onglet **Scène**. Une confirmation est demandée et l'action s'annule comme les autres.
@@ -48,6 +50,13 @@ Sélectionnez un objet pour changer :
 Les cocktails ont leurs couleurs du fond à la surface, le remplissage, les glaçons, la garniture et l'option **Cristal taillé**.
 
 Les **chevalets** et le **cadre menu** affichent votre propre image : votre carte, ou le nom d'un cocktail.
+
+### La caméra
+
+- **Glisser dans le vide** fait tourner la vue. **Espace + glisser** ou le **clic droit + glisser** la déplace, la **molette** zoome vers le curseur.
+- Au clavier : **+** et **−** zooment, les **flèches** tournent et inclinent la vue quand rien n'est sélectionné (avec Alt sinon), **Maj + flèches** la font glisser.
+- **1**, **2** et **3** donnent la vue 3/4, de face et de dessus ; **F** cadre la sélection ; **0** cadre tout.
+- **?** affiche tous les raccourcis. On les retrouve aussi dans le menu **…** et le clic droit.
 
 ## Créer ses propres éléments
 
@@ -105,6 +114,8 @@ En mode portrait, la bibliothèque et les propriétés s'ouvrent avec les deux b
 
 **Enregistrer** télécharge le fichier `.wsketch` dans l'app Fichiers, dossier Téléchargements. **Ouvrir** passe par l'app Fichiers. Les images et le plan coté s'exportent avec la feuille de partage : Photos, Fichiers, AirDrop ou WhatsApp. La bibliothèque personnelle et le travail en cours restent enregistrés sur la tablette.
 
+Tout fonctionne sur l'appareil : le site ne fait que livrer l'application, et le dessin, la simulation des tissus et l'enregistrement se font dans le navigateur. Rien n'est envoyé ailleurs, sauf les demandes à l'assistant si vous utilisez une clé API. Quand une nouvelle version est publiée, l'application se met à jour au lancement suivant ; le numéro de version figure en bas du menu **…**.
+
 Deux fonctions restent réservées à l'ordinateur : l'import de fichiers CAO STEP et IGES, et les agents locaux (MCP).
 
 ## Fichiers
@@ -124,7 +135,11 @@ Deux fonctions restent réservées à l'ordinateur : l'import de fichiers CAO ST
 | Exporter | ⌘E | Ctrl+E |
 | Présenter | ⌘↩ | Ctrl+Entrée |
 | Vue 3/4 / face / dessus | 1 / 2 / 3 | 1 / 2 / 3 |
-| Cadrer | F | F |
+| Cadrer la sélection / tout | F / 0 | F / 0 |
+| Zoomer | + / − | + / − |
+| Tourner la vue (rien de sélectionné) | flèches | flèches |
+| Déplacer la vue | Espace + glisser | Espace + glisser |
+| Tous les raccourcis | ? | ? |
 | Tourner de 15° | R (Maj+R : sens inverse) | R (Maj+R : sens inverse) |
 | Tout sélectionner | ⌘A | Ctrl+A |
 | Sélectionner une zone | Maj + glisser | Maj + glisser |

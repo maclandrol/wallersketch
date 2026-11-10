@@ -7,6 +7,7 @@ import path from 'node:path';
 const production = process.argv.includes('--production') || process.argv.includes('--web');
 const web = process.argv.includes('--web');
 const out = web ? 'dist-web' : 'dist';
+const { version } = JSON.parse(await readFile('package.json', 'utf8'));
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 await build({
@@ -15,6 +16,7 @@ await build({
   // Rarely used importers (CAD, OBJ, FBX…) and the AI SDKs load on demand as separate chunks.
   splitting: true, chunkNames: 'chunks/[name]-[hash]',
   sourcemap: production ? false : 'linked', minify: production, legalComments: 'none',
+  define: { __VERSION__: JSON.stringify(version) },
 });
 await copyFile('src/style.css', path.join(out, 'style.css'));
 await copyFile('resources/icon-square.png', path.join(out, 'icon.png'));
@@ -51,7 +53,7 @@ if (!web) {
   const list = ['./', ...files.map(f => './' + path.relative(out, f).split(path.sep).join('/'))];
   await writeFile(path.join(out, 'sw.js'), `const CACHE = 'wallersketch-${hash.digest('hex').slice(0, 12)}';
 const FILES = ${JSON.stringify(list)};
-self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
+self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;

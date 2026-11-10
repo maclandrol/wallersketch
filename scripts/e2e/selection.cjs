@@ -71,6 +71,44 @@ module.exports = async t => {
   t.check(swapped.length === 2 && swapped.every(i => places.includes(i.position.join())), 'replace swaps both drinks in place');
   await t.shot('selection');
 
+  // Arrange: the two blue lagoons and the sunrise in one row, then a grid of two per row.
+  await t.eval(() => { const { ed } = window.studio; ed.select(ed.state.items.filter(i => i.type === 'cocktail').map(i => i.id), 'single'); });
+  await pick('Ranger en ligne ou en grille', 'Ranger en ligne');
+  let drinks = (await t.items()).filter(i => i.type === 'cocktail');
+  t.check(new Set(drinks.map(i => i.position[2].toFixed(4))).size === 1, 'arranged in one row');
+  await pick('Ranger en ligne ou en grille', 'Ranger en grille…');
+  const perRow = page.locator('.arrange-pop .num-field', { hasText: 'Par rangée' }).locator('input');
+  await perRow.fill('2');
+  await perRow.press('Enter');
+  drinks = (await t.items()).filter(i => i.type === 'cocktail');
+  t.check(new Set(drinks.map(i => i.position[2].toFixed(4))).size === 2 && new Set(drinks.map(i => i.position[0].toFixed(4))).size === 2, 'grid of two per row');
+  await page.getByRole('button', { name: 'Terminé' }).click();
+
+  // Grabbing a glass by its rim: it stays under the pointer while dragged.
+  await t.eval(() => { const { ed, view } = window.studio; ed.setSelection([]); view.frame('perspective', undefined, true); });
+  await t.settled();
+  const glass = drinks[0];
+  const rim = await screen([glass.position[0], glass.position[1] + glass.size[1] * 0.85, glass.position[2]]);
+  t.check((await t.eval(([x, y]) => window.studio.view.itemAt(x, y), rim)) === glass.id, 'a click on the glass picks that glass');
+  await page.mouse.move(rim[0], rim[1]);
+  await page.mouse.down();
+  await page.mouse.move(rim[0] + 30, rim[1] - 6, { steps: 6 });
+  const moved = await t.eval(id => window.studio.ed.item(id), glass.id);
+  const now = await screen([moved.position[0], moved.position[1] + moved.size[1] * 0.85, moved.position[2]]);
+  await page.mouse.up();
+  t.check(Math.hypot(now[0] - rim[0] - 30, now[1] - rim[1] + 6) < 8, `the dragged glass stays under the pointer (${Math.round(Math.hypot(now[0] - rim[0] - 30, now[1] - rim[1] + 6))} px)`);
+
+  // Camera from the keyboard, and the shortcuts sheet.
+  await page.locator('main.stage canvas').focus();
+  const dist = () => t.eval(() => { const v = window.studio.view; return v.camera.position.distanceTo(v.controls.target); });
+  const d0 = await dist();
+  await page.keyboard.press('-');
+  await page.waitForTimeout(400);
+  t.check(await dist() > d0 * 1.2, 'minus zooms out');
+  await page.keyboard.press('?');
+  t.check(await page.locator('.shortcuts').isVisible(), '? opens the shortcuts');
+  await page.keyboard.press('Escape');
+
   // Emptying asks first, and can be undone.
   const count = (await t.items()).length;
   await t.eval(() => window.studio.ed.setSelection([]));

@@ -217,7 +217,8 @@ export class Editor {
 
   /** Snap a position to the grid of the surface it rests on (or the floor), in that surface's frame. */
   snapped(i: Item, target: Vec3): Vec3 {
-    const step = this.view.snap.step;
+    // Glasses are smaller than a 5 cm step: they snap by the centimetre.
+    const step = holdsLiquid(i) ? Math.min(this.view.snap.step, 0.01) : this.view.snap.step;
     const s = i.parentId ? this.item(i.parentId) : undefined;
     if (!s) return [Math.round(target[0] / step) * step, target[1], Math.round(target[2] / step) * step];
     const c = Math.cos(s.rotation), sn = Math.sin(s.rotation);
@@ -240,7 +241,8 @@ export class Editor {
     const f = this.alignFrame(s ? [{ ...p, parentId: s.id }] : [p]);
     const [lx, lz] = f.toLocal(target[0], target[2]), [hx, hz] = f.half(p);
     const local: [number, number] = [lx, lz], half: [number, number] = [hx, hz];
-    const threshold = 0.02, guides: [Vec3, Vec3][] = [];
+    // A glass sits among many close neighbours: a wide catch would keep it jumping between lines.
+    const threshold = holdsLiquid(p) ? 0.008 : 0.02, guides: [Vec3, Vec3][] = [];
     // Each candidate: a coordinate to match along `axis`, and the extent of the thing it belongs to.
     type Line = { v: number; lo: number; hi: number };
     const lines: [Line[], Line[]] = [[], []];
@@ -425,13 +427,13 @@ export class Editor {
   }
 
   /** Move several objects by their own deltas in one undo step. */
-  private moveEach(deltas: Map<string, Vec3>) {
+  private moveEach(deltas: Map<string, Vec3>, merge?: string) {
     if (![...deltas.values()].some(d => Math.abs(d[0]) + Math.abs(d[2]) > 1e-7)) return;
     this.doc.update(s => {
       let items = s.items;
       for (const [id, d] of deltas) items = transformItems(items, [id], d);
       return { ...s, items: this.settle([...items], [...deltas.keys()]) };
-    });
+    }, merge);
   }
 
   /** Align the selected objects' edges or centres along x (left/right) or z (back/front). */
@@ -463,6 +465,41 @@ export class Editor {
       cursor += 2 * f.half(i)[axis] + gap;
     }
     this.moveEach(deltas);
+  }
+
+  /**
+   * Arrange the selected objects in rows, in the frame of their support, centred where they are.
+   * The reading order (back to front, left to right) is taken once, so changing the number of
+   * columns or the gap in the dialog reflows the same objects instead of shuffling them.
+   */
+  private arrangement: { order: string[]; centre: [number, number] } | null = null;
+  startArrange(byRow = false) {
+    const roots = this.roots(this.selection).map(id => this.item(id)!).filter(i => i.type !== 'fabric');
+    if (roots.length < 2) { this.notify('Sélectionnez au moins deux objets à ranger'); return false; }
+    const f = this.alignFrame(roots), local = new Map(roots.map(i => [i.id, f.toLocal(i.position[0], i.position[2])]));
+    // Rows: objects whose depths are within half a glass of each other read as one row.
+    const tol = Math.min(...roots.map(i => f.half(i)[1]));
+    const order = [...roots].sort((a, b) => { const [ax, az] = local.get(a.id)!, [bx, bz] = local.get(b.id)!; return byRow || Math.abs(az - bz) < tol ? ax - bx : az - bz; }).map(i => i.id);
+    const c = [...local.values()].reduce((a, p) => [a[0] + p[0] / roots.length, a[1] + p[1] / roots.length], [0, 0]) as [number, number];
+    this.arrangement = { order, centre: c };
+    return true;
+  }
+
+  arrange(columns: number, gap: number, merge?: string) {
+    const a = this.arrangement;
+    const items = a?.order.map(id => this.item(id)).filter((i): i is Item => !!i) ?? [];
+    if (!a || items.length < 2) return;
+    const f = this.alignFrame(items);
+    const cols = Math.max(1, Math.min(items.length, Math.round(columns))), rows = Math.ceil(items.length / cols);
+    const pitch = [0, 1].map(k => Math.max(...items.map(i => 2 * f.half(i)[k])) + gap);
+    const deltas = new Map<string, Vec3>();
+    items.forEach((i, k) => {
+      const col = k % cols, row = Math.floor(k / cols);
+      const x = a.centre[0] + (col - (cols - 1) / 2) * pitch[0], z = a.centre[1] + (row - (rows - 1) / 2) * pitch[1];
+      const [lx, lz] = f.toLocal(i.position[0], i.position[2]);
+      deltas.set(i.id, f.toWorld(x - lx, z - lz));
+    });
+    this.moveEach(deltas, merge);
   }
 
   /** Swap the selected glasses or cocktails for another one, keeping their places. */

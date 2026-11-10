@@ -230,7 +230,7 @@ export class Viewport {
 
   /** Fade the rest of the scene while something is selected (the composition stays readable). */
   focusSelection = true;
-  private veil = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5, depthTest: false, depthWrite: false }));
+  private veil = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.62, depthTest: false, depthWrite: false }));
   private veilCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private focusDrinks = new THREE.Group();
   private focusKey: unknown[] = [];
@@ -594,11 +594,51 @@ export class Viewport {
     this.invalidate();
   }
 
+  /** Turn around the target (radians), and tilt up or down. */
+  /** Where the camera is going (repeated key presses add up instead of restarting midway). */
+  private cameraGoal(): [THREE.Vector3, THREE.Vector3] {
+    return this.anim ? [this.anim.to[0].clone(), this.anim.to[1].clone()] : [this.camera.position.clone(), this.controls.target.clone()];
+  }
+
+  orbitBy(az: number, el = 0) {
+    const [pos, t] = this.cameraGoal(), s = new THREE.Spherical().setFromVector3(pos.sub(t));
+    s.theta += az;
+    s.phi = THREE.MathUtils.clamp(s.phi - el, 0.02, this.controls.maxPolarAngle);
+    this.animateTo(t.clone().add(new THREE.Vector3().setFromSpherical(s)), t, 220);
+  }
+
+  /** Move closer (factor < 1) or further away. */
+  zoomBy(factor: number) {
+    const [pos, t] = this.cameraGoal(), off = pos.sub(t);
+    off.setLength(THREE.MathUtils.clamp(off.length() * factor, this.controls.minDistance, this.controls.maxDistance));
+    this.animateTo(t.clone().add(off), t, 200);
+  }
+
+  /** Slide the view sideways or up, as a fraction of what is visible. */
+  panBy(dx: number, dy: number) {
+    const [pos, t] = this.cameraGoal(), h = 2 * pos.distanceTo(t) * Math.tan((this.camera.fov * Math.PI) / 360);
+    this.camera.updateMatrixWorld();
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1);
+    const off = right.multiplyScalar(dx * h * this.camera.aspect).addScaledVector(up, dy * h);
+    this.animateTo(pos.add(off), t.add(off), 200);
+  }
+
+  /** While Space is held, a drag with the left button slides the view (trackpads have no right drag). */
+  private panMode = false;
+  setPanMode(on: boolean) {
+    if (on === this.panMode || (on && this.pointer)) return;
+    this.panMode = on;
+    this.controls.mouseButtons.LEFT = on ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+    this.host.classList.toggle('panning', on);
+  }
+
   /** Frame the selection or the whole composition from a named direction. */
   frame(view: ViewName = 'perspective', ids?: string[], instant = false) {
     const b = this.contentBounds(ids?.length ? ids : undefined);
     if (b.isEmpty()) b.set(new THREE.Vector3(-1, 0, -0.5), new THREE.Vector3(1, 1, 0.5));
     const sphere = b.getBoundingSphere(new THREE.Sphere());
+    // A single glass framed alone fills the screen: keep some of its surroundings in view.
+    sphere.radius = Math.max(sphere.radius, 0.3);
     const dir = VIEW_DIRS[view] ?? VIEW_DIRS.perspective;
     const fov = (this.camera.fov * Math.PI) / 180, fit = Math.min(fov, fov * this.camera.aspect);
     const dist = (sphere.radius * 1.08) / Math.sin(fit / 2);
@@ -740,7 +780,8 @@ export class Viewport {
     this.snapGrid.traverse(o => (o as THREE.LineSegments).geometry?.dispose());
     this.snapGrid = new THREE.Group();
     const d = this.dragging, item = d && this.entries.get(d.id)?.item;
-    if (!item || d.free || !this.snap.enabled || !this.helpersVisible) return;
+    // Glasses snap by the centimetre: a grid that fine would only clutter the table.
+    if (!item || d.free || !this.snap.enabled || !this.helpersVisible || holdsLiquid(item)) return;
     const support = item.parentId ? this.entries.get(item.parentId)?.item : undefined;
     const base = support ?? { position: [item.position[0], 0, item.position[2]], rotation: 0, size: [2, 0, 2] as Vec3 };
     const [w, , dd] = support ? support.size : base.size;
@@ -831,7 +872,36 @@ export class Viewport {
 
   itemAt(clientX: number, clientY: number): string | null {
     this.setRay(clientX, clientY);
-    return this.hitId(this.ray.intersectObjects(this.root.children, true)[0]);
+    const hit = this.ray.intersectObjects(this.root.children, true)[0], id = this.hitId(hit);
+    const it = id ? this.entries.get(id)?.item : undefined;
+    if (it && holdsLiquid(it)) return id;
+    return this.glassNear(clientX, clientY, hit?.distance ?? Infinity) ?? id;
+  }
+
+  /**
+   * Glasses are a few pixels wide at a normal zoom: a click just beside one (on the table or the
+   * riser under it) takes the glass, as long as nothing stands in front of it.
+   */
+  private glassNear(x: number, y: number, depth: number): string | null {
+    const r = this.renderer.domElement.getBoundingClientRect(), v = new THREE.Vector3(), edge = new THREE.Vector3();
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+    const slack = this.coarse ? 14 : 6;
+    let best: string | null = null, bestD = Infinity;
+    for (const [id, e] of this.entries) {
+      const i = e.item;
+      if (!holdsLiquid(i)) continue;
+      v.set(i.position[0], i.position[1] + i.size[1] / 2, i.position[2]);
+      if (v.distanceTo(this.camera.position) > depth + 0.05) continue;
+      edge.copy(v).addScaledVector(right, i.size[0] / 2).project(this.camera);
+      v.project(this.camera);
+      if (v.z > 1) continue;
+      const sx = r.left + ((v.x + 1) / 2) * r.width, sy = r.top + ((1 - v.y) / 2) * r.height;
+      const rx = Math.abs(edge.x - v.x) / 2 * r.width, ry = rx * (i.size[1] / i.size[0]);
+      // Ellipse around the glass on screen, widened by a few pixels.
+      const d = Math.hypot((x - sx) / (rx + slack), (y - sy) / (ry + slack));
+      if (d < 1 && d < bestD) { bestD = d; best = id; }
+    }
+    return best;
   }
 
   private bindPointer() {
@@ -855,7 +925,7 @@ export class Viewport {
     el.addEventListener('pointerup', cancelPress);
     el.addEventListener('pointercancel', cancelPress);
     el.addEventListener('pointerdown', e => {
-      if (e.button !== 0 || this.pointer) return;
+      if (e.button !== 0 || this.pointer || this.panMode) return;
       el.focus();
       this.anim = undefined;
       // Rotation handle first.
@@ -885,6 +955,8 @@ export class Viewport {
       }
       if (!this.selection.includes(id) || additive || e.altKey) this.events.select([id], additive ? 'toggle' : e.altKey ? 'single' : 'replace');
       let ids = this.selection.filter(s => !this.entries.get(s)?.item.locked);
+      // The grabbed object leads the drag (its surface and its snapping).
+      if (ids.includes(id)) ids = [id, ...ids.filter(s => s !== id)];
       if (!ids.length || additive) return;
       // A cloth lying on a table drags the whole dressed table; Alt moves the cloth alone.
       if (!e.altKey) ids = [...new Set(ids.map(s => { const it = this.entries.get(s)?.item; return it?.type === 'fabric' && it.parentId && !this.entries.get(it.parentId)?.item.locked ? it.parentId : s; }))];
@@ -892,7 +964,10 @@ export class Viewport {
       const hit = this.ray.intersectObjects(this.root.children, true)[0];
       const e0 = this.entries.get(ids.includes(id) ? id : ids[0])!;
       const anchor = new THREE.Vector3(e0.item.position[0], 0, e0.item.position[2]);
-      this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'pending', ids, anchor, plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -(hit?.point.y ?? 0)), last: [0, 0, 0], start: performance.now(), pivot: [0, 0, 0], startAngle: 0, lastYaw: 0, additive };
+      // Objects follow the surface under the cursor, so the grab offset is measured at the height
+      // they stand on: grabbing a glass by its rim must not make it jump behind the pointer.
+      const planeY = e0.item.type === 'table' ? (hit?.point.y ?? 0) : e0.item.position[1];
+      this.pointer = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'pending', ids, anchor, plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY), last: [0, 0, 0], start: performance.now(), pivot: [0, 0, 0], startAngle: 0, lastYaw: 0, additive };
       const grab = new THREE.Vector3();
       this.ray.ray.intersectPlane(this.pointer.plane, grab);
       this.pointer.anchor.sub(grab);
@@ -930,7 +1005,16 @@ export class Viewport {
     el.addEventListener('pointercancel', end);
     el.addEventListener('pointerleave', () => { if (this.hovered && !this.pointer) { this.hovered = null; this.events.hover(null); this.invalidate(); } });
     el.addEventListener('dblclick', e => { const id = this.itemAt(e.clientX, e.clientY); if (id) this.frameKeepingDirection([...withDescendants(this.state!.items, [id])]); });
-    el.addEventListener('contextmenu', e => { e.preventDefault(); this.events.contextMenu(this.itemAt(e.clientX, e.clientY), e.clientX, e.clientY); });
+    // Right drag slides the view: the menu opens only for a right click that did not move.
+    let right: { x: number; y: number } | null = null;
+    el.addEventListener('pointerdown', e => { right = e.button === 2 ? { x: e.clientX, y: e.clientY } : null; });
+    el.addEventListener('pointerup', e => {
+      if (e.button !== 2 || !right) return;
+      const still = Math.hypot(e.clientX - right.x, e.clientY - right.y) < 5;
+      right = null;
+      if (still) this.events.contextMenu(this.itemAt(e.clientX, e.clientY), e.clientX, e.clientY);
+    });
+    el.addEventListener('contextmenu', e => e.preventDefault());
   }
 
   private drawMarquee(x0: number, y0: number, x1: number, y1: number) {

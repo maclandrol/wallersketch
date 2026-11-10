@@ -1,3 +1,4 @@
+declare const __VERSION__: string;
 import { Viewport, type ViewName } from './render/viewport';
 import { Editor, msg, type Native } from './editor';
 import { parseProject } from './core/project';
@@ -14,7 +15,8 @@ import { AgentBridge } from './agent';
 import { webNative } from './web/native';
 import { openAssistant } from './ui/assistant';
 import { openDrinkBuilder } from './ui/drinkBuilder';
-import { selectionBar } from './ui/selectionBar';
+import { openArrange, selectionBar } from './ui/selectionBar';
+import { shortcutsSheet } from './ui/shortcuts';
 
 declare global { interface Window { native: Native; studio: unknown } }
 
@@ -25,7 +27,17 @@ const web = !!window.native.web;
 document.documentElement.classList.add(web ? 'web' : platformClass());
 if (matchMedia('(pointer: coarse)').matches) document.documentElement.classList.add('touch');
 // Works offline once installed on a tablet's home screen.
-if (web && location.protocol === 'https:' && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+if (web && location.protocol === 'https:' && 'serviceWorker' in navigator) {
+  // A new version installs in the background and takes over: reload onto it right away when
+  // nothing is unsaved, otherwise say so (the work is also kept in recovery).
+  const updating = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!updating) return;
+    if (!ed.doc.dirty) location.reload();
+    else toast('Une nouvelle version de WallerSketch est prête : enregistrez, puis rechargez la page.');
+  });
+  navigator.serviceWorker.register('./sw.js').then(r => r.update()).catch(() => {});
+}
 
 // ------------------------------------------------------------------ layout
 const stage = h('main', { class: 'stage' });
@@ -87,7 +99,11 @@ function fileMenu(anchor: HTMLElement) {
     { label: 'Importer un modèle 3D ou CAO…', icon: 'import', kbd: kbd('Mod+I'), run: () => action('importModel') },
     { label: 'Créer un cocktail…', icon: 'cocktail', run: () => openDrinkBuilder(ed) },
     'sep',
+    { label: 'Raccourcis clavier', icon: 'keyboard', kbd: '?', run: () => shortcutsSheet() },
+    'sep',
     { label: 'Vider la composition…', icon: 'trash', danger: true, disabled: !ed.state.items.length, run: () => confirmClear() },
+    'sep',
+    { label: `WallerSketch ${__VERSION__}`, disabled: true, run: () => {} },
   ]);
 }
 
@@ -128,6 +144,7 @@ try { const saved = JSON.parse(localStorage.getItem('snap') ?? 'null'); if (save
 snapBtn.addEventListener('click', () => menu(snapBtn, [
   ...[0.01, 0.05, 0.1].map(step => ({ label: `Grille ${step * 100} cm`, icon: view.snap.enabled && view.snap.step === step ? 'check' : undefined, run: () => { view.snap = { enabled: true, step }; persistSnap(); } })),
   'sep' as const, { label: 'Déplacement libre', icon: view.snap.enabled ? undefined : 'check', run: () => { view.snap = { ...view.snap, enabled: false }; persistSnap(); } },
+  'sep' as const, { label: 'Les verres se calent au centimètre', disabled: true, run: () => {} },
 ]));
 const persistSnap = () => { try { localStorage.setItem('snap', JSON.stringify(view.snap)); } catch { /* ignore */ } snapLabel(); view.invalidate(); };
 snapLabel();
@@ -209,6 +226,10 @@ function contextMenu(id: string | null, x: number, y: number) {
     { label: ed.selected.every(i => i.locked) ? 'Déverrouiller' : 'Verrouiller', icon: 'lock', run: () => ed.toggleLock() },
     { label: 'Cadrer', icon: 'frame', kbd: 'F', run: () => ed.frameView(activeView ?? 'perspective') },
     'sep',
+    ...(ed.selection.length > 1 ? [
+      { label: 'Ranger en ligne', icon: 'align', run: () => openArrange(ed, stage, ed.selection.length) },
+      { label: 'Ranger en grille…', icon: 'grid', run: () => openArrange(ed, stage) },
+    ] : []),
     { label: 'Sélectionner les mêmes', icon: 'select', run: () => ed.selectSimilar() },
     { label: 'Ajouter ce qui est posé dessus', icon: 'layers', run: () => ed.selectSupported() },
     'sep',
@@ -217,6 +238,7 @@ function contextMenu(id: string | null, x: number, y: number) {
     { label: 'Tout sélectionner', icon: 'select', kbd: kbd('Mod+A'), disabled: !ed.state.items.length, run: () => ed.select(ed.state.items.map(i => i.id), 'single') },
     { label: 'Mémoriser ce point de vue', icon: 'camera', run: () => ed.addView() },
     { label: 'Tout cadrer', icon: 'frame', kbd: 'F', run: () => view.frame(activeView ?? 'perspective') },
+    { label: 'Raccourcis clavier', icon: 'keyboard', kbd: '?', run: () => shortcutsSheet() },
     'sep',
     { label: 'Vider la composition…', icon: 'trash', danger: true, disabled: !ed.state.items.length, run: () => confirmClear() },
   ]);
@@ -409,6 +431,8 @@ addEventListener('keydown', e => {
     return;
   }
   if (isTyping()) return;
+  // Space held over the scene: drag to slide the view. Not when a button has the focus.
+  if (e.key === ' ' && !presenting && !(document.activeElement instanceof HTMLButtonElement)) { e.preventDefault(); view.setPanMode(true); return; }
   if (presenting) {
     if (e.key === 'Escape') present(false);
     if (e.key === 'ArrowRight' || e.key === ' ') goto(presentIndex + 1);
@@ -419,14 +443,25 @@ addEventListener('keydown', e => {
   switch (e.key) {
     case 'Delete': case 'Backspace': if (sel.length) { e.preventDefault(); ed.remove(); } break;
     case 'Escape': if (ed.grid.active) { ed.cancelGrid(); ed.emit(); } else ed.setSelection([]); break;
+    case '?': shortcutsSheet(); break;
+    case '+': case '=': view.zoomBy(0.8); break;
+    case '-': case '_': view.zoomBy(1.25); break;
+    case '0': case 'h': case 'H': activeView = activeView ?? 'perspective'; view.frame(activeView); break;
     case '1': setView('perspective'); break;
     case '2': setView('front'); break;
     case '3': setView('top'); break;
     case 'f': case 'F': ed.frameView(activeView ?? 'perspective'); break;
     case 'r': case 'R': if (sel.length) ed.rotate(sel, (e.shiftKey ? 1 : -1) * Math.PI / 12); break;
     case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': {
-      if (!sel.length) return;
       e.preventDefault();
+      // Without a selection (or with Alt) the arrows move the camera: turn and tilt, or slide with Shift.
+      if (!sel.length || e.altKey) {
+        const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0, dy = e.key === 'ArrowUp' ? 1 : e.key === 'ArrowDown' ? -1 : 0;
+        if (e.shiftKey) view.panBy(dx * 0.1, dy * 0.1);
+        else view.orbitBy(-dx * Math.PI / 12, dy * Math.PI / 18);
+        activeView = null; markViews();
+        break;
+      }
       // Nudge relative to the camera, so "right" is right on screen.
       const step = e.shiftKey ? 0.1 : 0.01;
       const az = Math.atan2(view.camera.position.x - view.controls.target.x, view.camera.position.z - view.controls.target.z);
@@ -438,7 +473,8 @@ addEventListener('keydown', e => {
     }
   }
 });
-addEventListener('keyup', e => { if (e.key.startsWith('Arrow')) ed.doc.seal(); });
+addEventListener('keyup', e => { if (e.key.startsWith('Arrow')) ed.doc.seal(); if (e.key === ' ') view.setPanMode(false); });
+addEventListener('blur', () => view.setPanMode(false));
 
 // ------------------------------------------------------------------ start
 (async function start() {

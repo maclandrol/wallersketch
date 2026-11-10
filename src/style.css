@@ -204,7 +204,7 @@ main.stage canvas { display: block; outline: none; touch-action: none; }
 .sel-bar { top: 12px; left: 50%; transform: translateX(-50%); align-items: center; max-width: calc(100% - 24px); }
 .sel-bar .btn { height: 30px; font-size: 12px; }
 .sel-bar .sep, .views-bar .sep { width: 1px; background: var(--line); margin: 5px 3px; }
-.shots { right: 12px; bottom: 12px; max-width: calc(100% - 420px); align-items: center; }
+.shots { right: 12px; bottom: 12px; max-width: calc(100% - 590px); align-items: center; }
 .shots .list { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .shot { width: 76px; border: 0; background: none; padding: 2px; border-radius: 8px; text-align: left; flex: none; position: relative; }
 .shot img, .shot .noimg { width: 72px; height: 44px; border-radius: 6px; object-fit: cover; display: block; background: #e7e3dc; }
@@ -352,3 +352,19 @@ html.web, .web body { touch-action: manipulation; overscroll-behavior: none; }
 .btn.danger-fill:hover:not(:disabled) { background: #a5281f; }
 
 .guide-label { position: absolute; z-index: 3; transform: translateX(-50%); pointer-events: none; background: var(--select); color: #fff; font-size: 11.5px; font-weight: 500; padding: 4px 8px; border-radius: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }
+
+/* Arrange in a grid: a small panel under the selection bar, values applied live. */
+.arrange-pop { top: 58px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 10px; padding: 10px 12px; }
+.arrange-pop strong { font-size: 12px; align-self: center; white-space: nowrap; }
+.arrange-pop .num-field { width: 92px; margin: 0; }
+
+/* Space held: the view slides with the pointer. */
+.stage.panning canvas, .panning canvas { cursor: grab; }
+.panning canvas:active { cursor: grabbing; }
+
+/* Keyboard reference. */
+.shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px 36px; }
+.shortcuts h3 { margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.shortcuts dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
+.shortcuts dt { color: var(--text); white-space: nowrap; }
+.shortcuts dd { margin: 0; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.0 (10 November 2026)
+
+- Moving glasses: a glass now stays under the pointer where it was grabbed instead of jumping behind it, a click just beside a glass picks it, and glasses snap by the centimetre and to their neighbours' edges rather than to the 5 cm grid.
+- Ranger: put the selection in one row, or in a grid with a number per row and a gap, adjusted live and undone in one step.
+- Camera from the keyboard: + and − to zoom, arrows to turn and tilt, Shift and arrows to slide, 0 to frame everything. Space and drag, or a right drag, slides the view; a right click without moving still opens the menu.
+- A shortcuts sheet, opened with ? or from the menus.
+- The selection is drawn over everything else and the rest of the scene fades further. Framing a single glass keeps its neighbours in view.
+- Web app: new versions are fetched fresh and applied on the next launch (before, an old copy could stay in use). The version number is shown at the bottom of the … menu.
+
 ## 2.2.0 (10 November 2026)
 
 - Selecting several objects: draw a box with the new Sélection tool or Shift-drag from an empty spot. Only objects fully inside are taken, so the table under them stays out.
