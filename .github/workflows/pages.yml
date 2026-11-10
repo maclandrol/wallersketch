@@ -1,10 +1,12 @@
 name: Tablet and web app
 
 # Publishes the installable web version (iPad, Android tablets, any browser) to GitHub Pages
-# for every release tag, after testing it in WebKit with iPad emulation.
+# from main, after testing it in WebKit with iPad emulation. GitHub only allows Pages
+# deployments from the main branch.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: ['src/**', 'resources/**', 'build.mjs', 'package-lock.json', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:

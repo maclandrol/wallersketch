@@ -83,7 +83,7 @@ Collider edges are rounded by about one particle spacing, so triangles wrap a co
 
 A service worker precaches every file under a content hash, so the app works offline once added to the home screen and updates cleanly. On narrow screens the side panels become drawers, a long press replaces right click, and the rotation knob is finger-sized.
 
-STEP/IGES import and local MCP agents need the desktop app. The tablet build is tested in WebKit with iPad emulation (`scripts/e2e/web.cjs`) and published to GitHub Pages for each release tag.
+STEP/IGES import and local MCP agents need the desktop app. The tablet build is tested in WebKit with iPad emulation (`scripts/e2e/web.cjs`) and published to GitHub Pages from main.
 
 ## Performance
 

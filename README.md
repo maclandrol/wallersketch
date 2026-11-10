@@ -72,4 +72,4 @@ npm start
 | `npm run docs` | Regenerate `docs/RECIPES.md` |
 | `npm run icon` | Redraw the app icon |
 
-CI runs the tests on macOS, Windows and Linux, and the tablet build in WebKit. Tagged versions are built and tested on each system before they are published, and the tablet version is deployed to GitHub Pages. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the app works and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licences.
+CI runs the tests on macOS, Windows and Linux, and the tablet build in WebKit. Tagged versions are built and tested on each system before they are published, and the tablet version is deployed to GitHub Pages from main. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the app works and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licences.
