@@ -5,7 +5,7 @@ module.exports = async t => {
   await t.eval(() => window.studio.ed.newProject());
 
   // Drag a table from the library onto the stage.
-  await page.locator('.cat', { hasText: 'Tables' }).click();
+  await t.category('Tables');
   const card = await page.locator('.card', { hasText: 'Table 180 × 75' }).boundingBox();
   const stage = await page.locator('main.stage').boundingBox();
   await page.mouse.move(card.x + 40, card.y + 40);
@@ -17,14 +17,14 @@ module.exports = async t => {
   const table = items[0];
 
   // Click-add a riser: it lands on the selected table.
-  await page.locator('.cat', { hasText: 'Socles' }).click();
+  await t.category('Socles');
   await page.locator('.card', { hasText: 'Cube 30' }).click();
   let riser = (await t.items()).find(i => i.type === 'riser');
   t.check(riser?.parentId === table.id && Math.abs(riser.position[1] - 0.75) < 0.002, 'riser placed on the table top');
 
   // A tablecloth: once settled, the riser stands on the cloth.
   await t.eval(id => window.studio.ed.select([id]), table.id);
-  await page.locator('.cat', { hasText: 'Tissus' }).click();
+  await t.category('Tissus');
   await page.locator('.card', { hasText: 'Nappe 320 × 180' }).click();
   await t.settled();
   riser = (await t.items()).find(i => i.type === 'riser');
@@ -32,10 +32,11 @@ module.exports = async t => {
 
   // A cocktail on the selected riser, then a grid of 10 in rows of 4.
   await t.eval(id => window.studio.ed.select([id]), riser.id);
-  await page.locator('.cat', { hasText: 'Cocktails' }).click();
+  await t.category('Cocktails');
   await page.locator('.card', { hasText: 'Blue Lagoon' }).click();
   const drink = (await t.items()).find(i => i.type === 'cocktail');
   t.check(drink.parentId === riser.id && Math.abs(drink.position[1] - (riser.position[1] + riser.size[1])) < 0.003, 'cocktail on the riser top');
+  await t.openProperties();
   await page.getByText('Disposer en grille…').click();
   for (const [label, value] of [['Quantité', '10'], ['Par rangée', '4']]) {
     const input = page.locator('.num-field', { hasText: label }).locator('input');
@@ -85,6 +86,7 @@ module.exports = async t => {
   await t.eval(() => window.studio.ed.undo());
   t.check((await t.items()).length === rot.length, 'undo restores the whole arrangement');
   await t.eval(id => window.studio.ed.select([id]), table.id);
+  await t.openProperties();
   const length = page.locator('.num-field', { hasText: 'Longueur' }).locator('input');
   await length.click();
   await page.keyboard.press('Backspace');
@@ -95,6 +97,7 @@ module.exports = async t => {
 
   // Risers never exceed 50 cm.
   await t.eval(() => { const { ed } = window.studio; ed.select([ed.state.items.find(i => i.type === 'riser').id]); });
+  await t.openProperties();
   const height = page.locator('.num-field', { hasText: 'Hauteur' }).locator('input');
   await height.fill('80');
   await height.press('Enter');

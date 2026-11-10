@@ -23,6 +23,11 @@ async function launch() {
   if (ci && process.platform === 'linux') args.push('--no-sandbox');
   const app = await electron.launch({ ...(exe ? { executablePath: exe } : {}), args, env: { ...process.env, WALLERSKETCH_USER_DATA: userData, WALLERSKETCH_TEST_DIALOGS: dialogs }, timeout: 60000 });
   const page = await app.firstWindow();
+  // E2E_WINDOW=1024x700 reproduces the small screens of CI runners (drawer layout).
+  if (process.env.E2E_WINDOW) {
+    const [w, h] = process.env.E2E_WINDOW.split('x').map(Number);
+    await app.evaluate(({ BrowserWindow }, [w, h]) => { const win = BrowserWindow.getAllWindows()[0]; win.setMinimumSize(400, 400); win.setContentSize(w, h); }, [w, h]);
+  }
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
@@ -46,6 +51,14 @@ function tools(ctx) {
     },
     async shot(name) { if (shots) { fs.mkdirSync(shots, { recursive: true }); await ctx.page.screenshot({ path: path.join(shots, name + '.png') }); } },
     get failed() { return failed; },
+    /** On small screens (CI runners) the side panels are drawers: open them before use. */
+    async openLibrary() { await t.openDrawer('left', 'Bibliothèque et scène'); },
+    async openProperties() { await t.openDrawer('right', 'Propriétés'); },
+    async openDrawer(side, label) {
+      const closed = await ctx.page.evaluate(s => matchMedia('(max-width: 1100px)').matches && !document.getElementById('app').classList.contains(s + '-open'), side);
+      if (closed) { await ctx.page.getByRole('button', { name: label }).click(); await ctx.page.waitForTimeout(300); }
+    },
+    async category(name) { await t.openLibrary(); await ctx.page.locator('.cat', { hasText: name }).click(); },
   };
   return t;
 }

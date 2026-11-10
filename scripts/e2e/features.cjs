@@ -41,12 +41,12 @@ module.exports = async t => {
   t.check(fs.existsSync(glbPath) && fs.readFileSync(glbPath).toString('ascii', 0, 4) === 'glTF', 'composition exported as GLB');
 
   // Drink builder.
-  await t.page.locator('.cat', { hasText: 'Cocktails' }).click();
+  await t.category('Cocktails');
   await t.page.getByRole('button', { name: 'Créer un cocktail…' }).click();
   await t.page.locator('.modal input.select').fill('Rose impériale');
   await t.page.getByRole('button', { name: 'Enregistrer et placer' }).click();
   await t.page.waitForFunction(() => window.studio.ed.state.items.some(i => i.name === 'Rose impériale'), null, { timeout: 10000 }).catch(() => {});
-  await t.page.locator('.cat', { hasText: 'Cocktails' }).click();
+  await t.category('Cocktails');
   const placed = (await t.items()).filter(i => i.name === 'Rose impériale');
   t.check(placed.length === 1, 'drink builder creates and places a cocktail' + (placed.length ? '' : ': ' + await t.eval(() => document.querySelector('.toast')?.textContent)));
   t.check(await t.page.locator('.card', { hasText: 'Rose impériale' }).count() === 1, 'the new cocktail is in the library');

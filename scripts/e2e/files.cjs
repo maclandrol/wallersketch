@@ -65,8 +65,10 @@ module.exports = async t => {
   // Autosave writes recovery for this document; New clears it.
   await t.eval(() => window.studio.ed.add('cube-30'));
   const recovery = path.join(t.userData, 'recovery.wsketch');
-  for (let k = 0; k < 40 && !fs.existsSync(recovery); k++) await new Promise(r => setTimeout(r, 250));
-  t.check(fs.existsSync(recovery) && JSON.parse(JSON.parse(fs.readFileSync(recovery, 'utf8')).project).items.length === reopened.length + 1, 'unsaved work written to recovery');
+  // An earlier edit may already have written a recovery file: wait for the one with the new object.
+  const recovered = () => { try { return JSON.parse(JSON.parse(fs.readFileSync(recovery, 'utf8')).project).items.length; } catch { return -1; } };
+  for (let k = 0; k < 40 && recovered() !== reopened.length + 1; k++) await new Promise(r => setTimeout(r, 250));
+  t.check(recovered() === reopened.length + 1, 'unsaved work written to recovery');
   await t.eval(() => window.studio.ed.newProject());
   for (let k = 0; k < 20 && fs.existsSync(recovery); k++) await new Promise(r => setTimeout(r, 100));
   t.check(!fs.existsSync(recovery), 'New discards the old recovery');
