@@ -387,3 +387,11 @@ html.web, .web body { touch-action: manipulation; overscroll-behavior: none; }
 .hint-bar .btn { color: #fff; opacity: .7; flex: none; }
 .hint-bar .btn:hover { opacity: 1; background: rgba(255, 255, 255, .12); }
 .presenting .hint-bar { display: none !important; }
+
+/* The operator's logo, over the scene only while presenting (exports get it drawn in). */
+.logo-overlay { position: absolute; z-index: 3; pointer-events: none; height: auto; display: none; }
+.presenting .logo-overlay[src] { display: block; }
+
+/* Free rotation: the angle follows the cursor. */
+.spin-label { position: absolute; z-index: 4; pointer-events: none; padding: 4px 8px; border-radius: 7px; background: #1f6feb; color: #fff; font-size: 12px; white-space: nowrap; box-shadow: var(--shadow); }
+.spinning canvas { cursor: alias; }

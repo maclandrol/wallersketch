@@ -89,6 +89,28 @@ export function liquid(map: THREE.Texture, key: string): THREE.MeshPhysicalMater
   }));
 }
 
+/**
+ * An imported picture shown on an object's front. `repeat` and `offset` place tiles; a
+ * transparent PNG (a logo) keeps its transparency.
+ */
+export function picture(assetId: string, repeat: [number, number] = [1, 1], offset: [number, number] = [0, 0]): THREE.MeshStandardMaterial | null {
+  const url = resolveAsset(assetId);
+  if (!url) return null;
+  const key = ['picture', assetId, ...repeat.map(v => v.toFixed(4)), ...offset.map(v => v.toFixed(4))].join('|');
+  return get(key, () => {
+    const base = importedTexture(assetId, url, onTextureLoad);
+    let map = base;
+    if (repeat[0] !== 1 || repeat[1] !== 1 || offset[0] || offset[1]) {
+      map = base.clone();
+      map.source = base.source;
+      map.repeat.set(...repeat);
+      map.offset.set(...offset);
+      map.needsUpdate = true;
+    }
+    return new THREE.MeshStandardMaterial({ map, roughness: 0.75, transparent: true, alphaTest: 0.01, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  });
+}
+
 export function plain(color: string, roughness = 0.6, extra: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
   return get('plain|' + color + roughness + JSON.stringify(extra), () => new THREE.MeshStandardMaterial({ color, roughness, ...extra }));
 }

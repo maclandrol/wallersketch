@@ -1,9 +1,9 @@
 // Editing commands. Everything that changes the document goes through here, so every change
 // is undoable and objects are always re-seated on the surfaces under them.
-import type { Arrangement, CameraView, DocState, EmbeddedAsset, Finish, Item, SceneSettings, Vec3 } from './core/types';
+import type { Arrangement, CameraView, DocState, EmbeddedAsset, Finish, Item, Logo, Picture, SceneSettings, Vec3 } from './core/types';
 import { Document, emptyState } from './core/document';
 import { glassProfile } from './core/glassware';
-import { clampSize, createItem, duplicateItems, expandGroups, footprintContains, gridPositions, holdsLiquid, isSupport, newId, removeItems, selectionCentre, transformItems, withDescendants, type GridSpec } from './core/scene';
+import { clampSize, createItem, duplicateItems, expandGroups, footprintContains, gridPositions, holdsLiquid, isSupport, newId, pictureFace, removeItems, selectionCentre, transformItems, withDescendants, type GridSpec } from './core/scene';
 import { glassFromData, parseProject, serialise } from './core/project';
 import { catalogEntry, registerEntry, unregisterEntry, type CatalogEntry } from './core/catalog';
 import { registerGlass, type GlassProfile } from './core/glassware';
@@ -36,10 +36,12 @@ export interface Native {
   assistantKeys(): Promise<Record<Provider, boolean> & { models: Record<Provider, string>; chosen: { provider?: Provider; model?: string } }>;
   assistantSetKey(provider: Provider, key: string): Promise<Record<Provider, boolean>>;
   convertCAD(base64: string, ext: string): Promise<CADMesh[]>;
+  /** Live model list (OpenRouter), raw API JSON; null for providers with a fixed default. */
+  assistantModels(provider: Provider): Promise<unknown>;
   assistantAsk(r: { provider: string; model?: string; system: string; messages: { role: 'user' | 'assistant'; text: string; image?: string }[] }): Promise<string>;
 }
 
-export type Provider = 'anthropic' | 'openai' | 'deepseek';
+export type Provider = 'anthropic' | 'openai' | 'deepseek' | 'openrouter';
 
 export interface CADMesh { name: string; color: [number, number, number] | null; position: Float32Array; normal: Float32Array | null; index: Uint32Array }
 
@@ -357,7 +359,8 @@ export class Editor {
         const p = fn(i);
         if (!Object.keys(p).length) return i;
         changed = true;
-        if (p.size || p.drink || p.shape || p.tilt) geometry = true;
+        // Anything that changes the surfaces re-seats what stands on them (steps included).
+        if (p.size || p.drink || p.shape || p.tilt || p.steps) geometry = true;
         const n = { ...i, ...p };
         if (p.size) n.size = clampSize(n, p.size);
         return n;
@@ -755,6 +758,59 @@ export class Editor {
       this.setFinish(ids, part, { texture: 'asset:' + asset.id, color: '#ffffff' });
     } catch (e) { this.notify(msg(e), 'error'); }
   }
+
+  // ------------------------------------------------------------------ pictures and logo
+
+  /** Ask for an image and keep it in the project; returns its asset id and proportions. */
+  private async pickImage(): Promise<{ id: string; aspect: number } | null> {
+    const asset = await this.native.importFile('texture');
+    if (!asset) return null;
+    const img = new Image();
+    img.src = `data:${asset.mime};base64,${asset.data}`;
+    await img.decode();
+    this.doc.assets.set(asset.id, asset);
+    this.view.setAssets(this.doc.assets);
+    return { id: asset.id, aspect: img.naturalWidth / Math.max(1, img.naturalHeight) };
+  }
+
+  /** Put an image on the front of the selected walls or presentoirs, centred at a readable size. */
+  async addPicture(ids = this.selection) {
+    try {
+      const img = await this.pickImage();
+      if (!img) return;
+      this.patch(ids, i => {
+        const face = pictureFace(i), keep = i.picture;
+        if (!face) return {};
+        // A centred image takes most of a flat face; on a round body, a label a third of the way round.
+        const across = face.kind === 'flat' ? face.w * 0.6 : Math.PI * 2 * face.r / 3;
+        const width = keep?.width ?? Math.min(across, face.h * 0.6 * img.aspect);
+        return { picture: { asset: img.id, fit: keep?.fit ?? 'center', width: Math.round(width * 100) / 100, aspect: img.aspect } };
+      });
+    } catch (e) { this.notify(msg(e), 'error'); }
+  }
+
+  setPicture(ids: string[], change: Partial<Pick<Picture, 'fit' | 'width'>>, merge?: string) {
+    this.patch(ids, i => (i.picture ? { picture: { ...i.picture, ...change } } : {}), merge);
+  }
+
+  removePicture(ids = this.selection) { this.patch(ids, () => ({ picture: undefined })); }
+
+  /** Logo shown in a corner of exported images and of the presentation. */
+  async addLogo() {
+    try {
+      const img = await this.pickImage();
+      if (!img) return;
+      const keep = this.state.scene.logo;
+      this.setScene({ logo: { asset: img.id, corner: keep?.corner ?? 'br', size: keep?.size ?? 0.14, aspect: img.aspect } });
+    } catch (e) { this.notify(msg(e), 'error'); }
+  }
+
+  setLogo(change: Partial<Pick<Logo, 'corner' | 'size'>>, merge?: string) {
+    const logo = this.state.scene.logo;
+    if (logo) this.setScene({ logo: { ...logo, ...change } }, merge);
+  }
+
+  removeLogo() { this.setScene({ logo: undefined }); }
 
   // ------------------------------------------------------------------ files
 

@@ -1,14 +1,16 @@
-// Remote assistants (Claude, ChatGPT, DeepSeek) called from the main process with the
+// Remote assistants (Claude, ChatGPT, DeepSeek, OpenRouter) called from the main process with the
 // operator's own API key. The window never sees the key and has no network access of its own.
 const fs = require('node:fs');
 const path = require('node:path');
 const {safeStorage} = require('electron');
 
-const PROVIDERS = ['anthropic', 'openai', 'deepseek'];
-const DEFAULT_MODELS = {anthropic: 'claude-opus-5-5', openai: 'gpt-5', deepseek: 'deepseek-chat'};
-// DeepSeek serves an OpenAI-compatible API.
-const BASE_URLS = {deepseek: 'https://api.deepseek.com'};
-const NAMES = {anthropic: 'Claude', openai: 'OpenAI', deepseek: 'DeepSeek'};
+const PROVIDERS = ['anthropic', 'openai', 'deepseek', 'openrouter'];
+const DEFAULT_MODELS = {anthropic: 'claude-opus-5-5', openai: 'gpt-5', deepseek: 'deepseek-chat', openrouter: 'openrouter/auto'};
+// DeepSeek and OpenRouter serve OpenAI-compatible APIs.
+const BASE_URLS = {deepseek: 'https://api.deepseek.com', openrouter: 'https://openrouter.ai/api/v1'};
+const NAMES = {anthropic: 'Claude', openai: 'OpenAI', deepseek: 'DeepSeek', openrouter: 'OpenRouter'};
+// OpenRouter shows the app's name in the operator's activity page.
+const HEADERS = {openrouter: {'HTTP-Referer': 'https://maclandrol.github.io/wallersketch/', 'X-Title': 'WallerSketch'}};
 
 class Keys {
   constructor(userData) { this.file = path.join(userData, 'assistant-keys.json'); }
@@ -62,7 +64,7 @@ async function ask(keys, {provider, model, system, messages}) {
     }
   }
   const OpenAI = require('openai').default;
-  const client = new OpenAI({apiKey: key, baseURL: BASE_URLS[provider]});
+  const client = new OpenAI({apiKey: key, baseURL: BASE_URLS[provider], defaultHeaders: HEADERS[provider]});
   if (provider === 'deepseek' && messages.some(m => m.image)) throw Error('DeepSeek ne lit pas les photos. Retirez la photo ou choisissez Claude ou ChatGPT.');
   try {
     const r = await client.chat.completions.create({
@@ -73,6 +75,8 @@ async function ask(keys, {provider, model, system, messages}) {
   } catch (e) {
     if (e?.status === 401) throw Error(`Clé API ${NAMES[provider]} refusée.`);
     if (e?.status === 402) throw Error(`Crédit ${NAMES[provider]} épuisé : rechargez le compte sur le site du fournisseur.`);
+    if (e?.status === 429) throw Error(provider === 'openrouter' ? 'Ce modèle gratuit est très demandé en ce moment : réessayez dans une minute ou choisissez-en un autre.' : 'Limite de requêtes atteinte, réessayez dans un instant.');
+    if (e?.status === 404 && provider === 'openrouter') throw Error('Ce modèle n’est plus proposé par OpenRouter : choisissez-en un autre dans la liste.');
     throw Error(`Erreur de l’API ${NAMES[provider]} : ` + (e?.message ?? e));
   }
 }
@@ -87,4 +91,12 @@ function openaiContent(m) {
   return m.image ? [{type: 'text', text: m.text}, {type: 'image_url', image_url: {url: m.image}}] : m.text;
 }
 
-module.exports = {Keys, ask, DEFAULT_MODELS, PROVIDERS};
+/** OpenRouter's public model list (no key needed), raw JSON for the window to sort. */
+async function listModels(provider) {
+  if (provider !== 'openrouter') return null;
+  const r = await fetch('https://openrouter.ai/api/v1/models', {signal: AbortSignal.timeout(15000)});
+  if (!r.ok) throw Error('Liste des modèles OpenRouter indisponible (' + r.status + ').');
+  return r.json();
+}
+
+module.exports = {Keys, ask, listModels, DEFAULT_MODELS, PROVIDERS};

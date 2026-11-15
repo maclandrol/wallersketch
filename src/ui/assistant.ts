@@ -3,6 +3,7 @@
 //     back (no key, works with the free web and phone apps);
 //  2. API key: the app asks Claude, ChatGPT or DeepSeek directly;
 //  3. local agents (Claude Desktop, Claude Code, Codex) through the MCP server.
+import { defaultFreeModel, parseModels, type RemoteModel } from '../core/openrouter';
 import type { Editor, Provider } from '../editor';
 import { compileRecipe, parseRecipes, previewItem, RecipeError, recipeGuide, type Compiled } from '../core/recipes';
 import { registerGlass } from '../core/glassware';
@@ -24,6 +25,7 @@ const KEY_PAGES: Record<string, string> = {
   anthropic: 'https://console.anthropic.com/settings/keys',
   openai: 'https://platform.openai.com/api-keys',
   deepseek: 'https://platform.deepseek.com/api_keys',
+  openrouter: 'https://openrouter.ai/settings/keys',
 };
 let history: { role: 'user' | 'assistant'; text: string; image?: string }[] = [];
 
@@ -92,8 +94,34 @@ function compileAll(text: string): { compiled: Compiled[]; errors: string[] } {
 
 function askPane(ed: Editor, close: () => void): HTMLElement {
   const el = h('div', { class: 'stack' });
-  const provider = h('select', { class: 'select' }, h('option', { value: 'openai' }, 'ChatGPT (OpenAI)'), h('option', { value: 'deepseek' }, 'DeepSeek'), h('option', { value: 'anthropic' }, 'Claude (Anthropic)'));
-  const model = h('input', { class: 'select', placeholder: 'Modèle', spellcheck: false });
+  const provider = h('select', { class: 'select' }, h('option', { value: 'openai' }, 'ChatGPT (OpenAI)'), h('option', { value: 'deepseek' }, 'DeepSeek'), h('option', { value: 'anthropic' }, 'Claude (Anthropic)'), h('option', { value: 'openrouter' }, 'OpenRouter (modèles gratuits possibles)'));
+  const model = h('input', { class: 'select', placeholder: 'Modèle', spellcheck: false, list: 'assistant-models' });
+  // OpenRouter: the live model list as suggestions, free ones only unless unticked.
+  const modelList = h('datalist', { id: 'assistant-models' });
+  let remote: RemoteModel[] = [];
+  const freeOnly = h('input', { type: 'checkbox', class: 'switch', checked: true });
+  const modelNote = h('span', { class: 'hint' });
+  const freeRow = h('label', { class: 'toggle', style: 'display:none' }, h('span', null, 'Modèles gratuits seulement'), freeOnly);
+  const fillModels = () => {
+    const shown = remote.filter(m => !freeOnly.checked || m.free);
+    modelList.replaceChildren(...shown.map(m => h('option', { value: m.id }, m.name + (m.free ? ' · gratuit' : ''))));
+    const current = remote.find(m => m.id === model.value.trim());
+    if (model.dataset.auto && (!current || (freeOnly.checked && !current.free))) model.value = (freeOnly.checked ? defaultFreeModel(remote) : undefined) ?? 'openrouter/auto';
+    updateModelNote();
+  };
+  const updateModelNote = () => {
+    if (provider.value !== 'openrouter') { modelNote.textContent = ''; return; }
+    const m = remote.find(x => x.id === model.value.trim());
+    modelNote.textContent = !remote.length ? 'Chargement de la liste des modèles…' : m ? `${m.free ? 'Gratuit' : 'Payant'}${m.images ? ', lit les photos' : ''}. ${remote.filter(x => x.free).length} modèles gratuits sur ${remote.length}.` : 'Modèle hors liste : vérifiez son nom sur openrouter.ai.';
+    attachRow.style.display = !m || m.images ? 'flex' : 'none';
+  };
+  freeOnly.addEventListener('change', () => { model.dataset.auto = '1'; fillModels(); });
+  const loadModels = async () => {
+    if (remote.length) { fillModels(); return; }
+    updateModelNote();
+    try { remote = parseModels(await ed.native.assistantModels('openrouter')); fillModels(); }
+    catch (e) { modelNote.textContent = String((e as Error).message); }
+  };
   const keyRow = h('div');
   const prompt = h('textarea', { class: 'prompt', rows: 4, placeholder: 'Ex. : « Un présentoir en gradins miroir pour 24 flûtes, et un cocktail “Rose impériale” rose et or dans une coupe en cristal »' });
   let image: string | undefined;
@@ -114,16 +142,18 @@ function askPane(ed: Editor, close: () => void): HTMLElement {
     const k = await ed.native.assistantKeys();
     const p = provider.value as Provider;
     if (!model.value || model.dataset.auto) { model.value = k.chosen.provider === p && k.chosen.model ? k.chosen.model : k.models[p]; model.dataset.auto = '1'; }
-    const input = h('input', { class: 'select', type: 'password', placeholder: { anthropic: 'Clé API Claude (sk-ant-…)', openai: 'Clé API OpenAI (sk-…)', deepseek: 'Clé API DeepSeek (sk-…)' }[p], style: 'flex:1' });
+    const input = h('input', { class: 'select', type: 'password', placeholder: { anthropic: 'Clé API Claude (sk-ant-…)', openai: 'Clé API OpenAI (sk-…)', deepseek: 'Clé API DeepSeek (sk-…)', openrouter: 'Clé API OpenRouter (sk-or-…)' }[p], style: 'flex:1' });
     keyRow.replaceChildren(k[p]
       ? h('div', { class: 'note', style: 'margin:0;display:flex;gap:8px;align-items:center' }, icon('lock', 14), ed.native.web ? 'Clé enregistrée sur cet appareil.' : 'Clé enregistrée, chiffrée par le système.', button('Changer', { class: 'small', onClick: async () => { await ed.native.assistantSetKey(p, ''); refreshKeys(); } }))
       : h('div', { class: 'stack', style: 'gap:6px' },
         h('div', { style: 'display:flex;gap:6px' }, input, button('Enregistrer', { class: 'outline', onClick: async () => { try { await ed.native.assistantSetKey(p, input.value); refreshKeys(); } catch (e) { toast(String((e as Error).message), 'error'); } } })),
-        h('div', { class: 'hint' }, 'Une clé API se crée sur le site du fournisseur et se paie à l’usage, séparément de l’abonnement ChatGPT. ', h('a', { href: '#', onClick: (e: Event) => { e.preventDefault(); ed.native.openExternal(KEY_PAGES[p]); } }, 'Créer une clé'), '. Sans clé, utilisez l’onglet « ChatGPT, DeepSeek… ».')));
+        h('div', { class: 'hint' }, p === 'openrouter' ? 'Une clé OpenRouter se crée gratuitement ; les modèles gratuits ne coûtent rien mais répondent parfois plus lentement aux heures chargées. ' : 'Une clé API se crée sur le site du fournisseur et se paie à l’usage, séparément de l’abonnement ChatGPT. ', h('a', { href: '#', onClick: (e: Event) => { e.preventDefault(); ed.native.openExternal(KEY_PAGES[p]); } }, 'Créer une clé'), '. Sans clé, utilisez l’onglet « ChatGPT, DeepSeek… ».')));
     attachRow.style.display = p === 'deepseek' ? 'none' : 'flex';
+    freeRow.style.display = p === 'openrouter' ? '' : 'none';
+    if (p === 'openrouter') loadModels(); else { modelList.replaceChildren(); modelNote.textContent = ''; }
   };
   provider.addEventListener('change', () => { model.dataset.auto = '1'; model.value = ''; refreshKeys(); });
-  model.addEventListener('input', () => delete model.dataset.auto);
+  model.addEventListener('input', () => { delete model.dataset.auto; updateModelNote(); });
   ed.native.assistantKeys().then(k => { if (k.chosen.provider) provider.value = k.chosen.provider; refreshKeys(); });
   send.addEventListener('click', async () => {
     if (!prompt.value.trim()) return;
@@ -146,7 +176,8 @@ function askPane(ed: Editor, close: () => void): HTMLElement {
     } finally { send.disabled = false; }
   });
   el.append(
-    h('div', { class: 'fields two' }, h('div', { class: 'field' }, h('span', { class: 'num-label' }, 'Assistant'), provider), h('div', { class: 'field' }, h('span', { class: 'num-label' }, 'Modèle'), model)),
+    h('div', { class: 'fields two' }, h('div', { class: 'field' }, h('span', { class: 'num-label' }, 'Assistant'), provider), h('div', { class: 'field' }, h('span', { class: 'num-label' }, 'Modèle'), model, modelList)),
+    freeRow, modelNote,
     keyRow, prompt,
     h('div', { style: 'display:flex;gap:8px;align-items:center' }, attachRow, h('span', { style: 'flex:1' }), send),
     h('div', { class: 'hint' }, 'La description, la composition actuelle et la photo éventuelle sont envoyées au fournisseur choisi. Rien n’est envoyé sans votre clic.'),

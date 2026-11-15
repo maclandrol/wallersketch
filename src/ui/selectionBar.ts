@@ -97,7 +97,7 @@ export function selectionBar(ed: Editor, frame: () => void): HTMLElement {
     label,
     h('div', { class: 'sep' }),
     button(null, { icon: 'duplicate', title: `Dupliquer (${kbd('Mod+D')})`, onClick: () => ed.duplicate() }),
-    button(null, { icon: 'rotate', title: 'Pivoter de 90° (R : 15°)', onClick: () => ed.rotate(ed.selection, -Math.PI / 2) }),
+    button(null, { icon: 'rotate', title: 'Pivoter : bougez la souris, cliquez pour valider (T)', onClick: () => ed.view.startSpin() }),
     alignBtn, arrangeBtn, swapBtn, selectBtn, groupBtn, lockBtn,
     button(null, { icon: 'frame', title: 'Cadrer (F)', onClick: frame }),
     h('div', { class: 'sep' }),

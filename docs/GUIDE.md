@@ -13,7 +13,7 @@ Une ligne en bas de la vue dit, en quelques mots, ce que vous pouvez faire avec 
 ## Composer
 
 1. **Ajoutez une table.** Cliquez sur une carte de la bibliothèque, ou faites-la glisser dans la scène.
-2. **Ajoutez des socles.** Sélectionnez la table, puis cliquez sur un socle : il se pose dessus, à une place libre. Les socles font 50 cm de haut au maximum.
+2. **Ajoutez des socles.** Sélectionnez la table, puis cliquez sur un socle : il se pose dessus, à une place libre. Les socles font 50 cm de haut au maximum. Pour les **gradins**, réglez le nombre de marches, puis la profondeur et la hauteur d'une marche : ajouter une marche agrandit le présentoir sans rétrécir les autres, et les verres posés suivent.
 3. **Ajoutez un tissu.** Avec la table sélectionnée, cliquez sur une nappe : elle tombe sur la table et se drape en quelques instants.
    - Une **nappe** reste sous les socles, qui se posent dessus.
    - Un **drapé** passe par-dessus les socles et suit leurs hauteurs. Le réglage **Recouvre aussi les socles** permet de changer ce comportement.
@@ -25,7 +25,8 @@ Une ligne en bas de la vue dit, en quelques mots, ce que vous pouvez faire avec 
 
 - **Glisser** un objet le déplace sur la surface située sous le curseur. Ce qui est posé dessus le suit.
 - **Glisser la nappe** déplace toute la table habillée. Avec **Alt**, seule la nappe bouge.
-- Pour tourner un objet, faites glisser la **pastille bleue** de l'anneau, ou appuyez sur **R**. La rotation se cale par pas de 15° ; avec **Alt**, elle est libre.
+- Pour tourner un objet, faites glisser la **pastille bleue** de l'anneau, ou appuyez sur **R** pour 15° de plus.
+- **Pivoter librement** (le bouton ⟳ de la barre du haut, la touche **T** ou le clic droit) : l'objet tourne en suivant la souris, sans tenir le bouton, et l'angle s'affiche à côté du curseur. Un clic valide, **Échap** ou le clic droit remet l'objet comme avant. Sur tablette, faites glisser le doigt et relâchez pour valider. La rotation se cale par pas de 15° ; avec **Alt**, elle est libre.
 - L'objet reste sous le curseur, à l'endroit où vous l'avez saisi. Pour un verre, un clic juste à côté suffit à le prendre.
 - Pendant un déplacement, l'objet se cale sur les bords et le centre de son support et des objets voisins : une ligne bleue montre l'alignement trouvé et une étiquette donne la distance aux bords du support. Sinon, le bouton **Grille** cale les positions sur 1, 5 ou 10 cm, en partant de l'angle du support. Les verres, plus petits, se calent toujours au centimètre. **Alt** déplace librement.
 - Les **flèches** déplacent la sélection de 1 cm, ou de 10 cm avec Maj.
@@ -55,6 +56,12 @@ Les cocktails ont leurs couleurs, listées comme dans le verre : la surface en h
 Un **verre vide** se remplit depuis ses propriétés avec **Remplir ce verre**, puis se colore comme un cocktail. **Vider le verre** fait l'inverse.
 
 Les **chevalets** et le **cadre menu** affichent votre propre image : votre carte, ou le nom d'un cocktail.
+
+Les murs, l'arche, le rideau, les socles et la plupart des éléments de décor (vases, fontaine, seau, photophore, pot à pailles, boîte à serviettes) acceptent aussi une image, dans la section **Image** de leurs propriétés :
+- **Centrée** : une affiche ou un logo au milieu de la face avant, à la largeur choisie. Sur un objet rond, l'image s'enroule comme une étiquette.
+- **Répétée** : un motif répété sur toute la face (ou tout le tour), centré ; la largeur règle la taille d'un motif.
+
+Les proportions de l'image sont gardées et un PNG transparent reste transparent.
 
 ### La caméra
 
@@ -90,6 +97,7 @@ Avec une clé API (onglet **Clé API**), WallerSketch interroge directement Chat
 - **Vue** mémorise le point de vue actuel. Les vues apparaissent en vignettes en bas à droite ; un clic droit permet de les renommer, de les remplacer ou de les supprimer.
 - **Présenter** passe en plein écran. Les flèches ← → font défiler les vues ; **Échap** quitte la présentation.
 - **Ambiance** propose trois éclairages : Studio, Chaleureux, Soirée. Le fond et le sol se règlent avec.
+- **Logo** (dans le panneau Présentation, quand rien n'est sélectionné) : votre logo s'affiche dans le coin choisi pendant la présentation et sur toutes les images exportées. Sa taille se règle en pourcentage de la largeur de l'image.
 
 ## Exporter
 
@@ -147,6 +155,7 @@ Deux fonctions restent réservées à l'ordinateur : l'import de fichiers CAO ST
 | Déplacer la vue | Espace + glisser | Espace + glisser |
 | Tous les raccourcis | ? | ? |
 | Tourner de 15° | R (Maj+R : sens inverse) | R (Maj+R : sens inverse) |
+| Pivoter librement | T | T |
 | Tout sélectionner | ⌘A | Ctrl+A |
 | Sélectionner une zone | Maj + glisser | Maj + glisser |
 | Désélectionner | Échap | Échap |

@@ -1,6 +1,7 @@
 // Browser implementation of the desktop bridge, for the tablet / web version. Projects open
 // and save through the system file picker and share sheet, everything else lives in IndexedDB
 // on the device. Local agents (MCP) and CAD conversion need the desktop app.
+import { OPENROUTER_BASE_URL, OPENROUTER_MODELS_URL } from '../core/openrouter';
 import type { AgentInfo, CADMesh, Native, Provider } from '../editor';
 import type { EmbeddedAsset } from '../core/types';
 
@@ -94,9 +95,10 @@ async function checkImport(f: File, kind: 'model' | 'texture'): Promise<Embedded
   return { id: crypto.randomUUID(), name: f.name, type: kind, mime, data: await toBase64(f) };
 }
 
-const PROVIDERS: Provider[] = ['anthropic', 'openai', 'deepseek'];
-const MODELS: Record<Provider, string> = { anthropic: 'claude-opus-5-5', openai: 'gpt-5', deepseek: 'deepseek-chat' };
-const NAMES: Record<Provider, string> = { anthropic: 'Claude', openai: 'OpenAI', deepseek: 'DeepSeek' };
+const PROVIDERS: Provider[] = ['anthropic', 'openai', 'deepseek', 'openrouter'];
+const MODELS: Record<Provider, string> = { anthropic: 'claude-opus-5-5', openai: 'gpt-5', deepseek: 'deepseek-chat', openrouter: 'openrouter/auto' };
+const NAMES: Record<Provider, string> = { anthropic: 'Claude', openai: 'OpenAI', deepseek: 'DeepSeek', openrouter: 'OpenRouter' };
+const BASE_URLS: Partial<Record<Provider, string>> = { deepseek: 'https://api.deepseek.com', openrouter: OPENROUTER_BASE_URL };
 
 async function keyStatus() {
   const keys = (await get<Record<string, string>>('keys')) ?? {};
@@ -135,7 +137,7 @@ async function ask(r: Parameters<Native['assistantAsk']>[0]): Promise<string> {
   }
   if (provider === 'deepseek' && r.messages.some(m => m.image)) throw new Error('DeepSeek ne lit pas les photos. Retirez la photo ou choisissez Claude ou ChatGPT.');
   const { default: OpenAI } = await import('openai');
-  const client = new OpenAI({ apiKey: key, baseURL: provider === 'deepseek' ? 'https://api.deepseek.com' : undefined, dangerouslyAllowBrowser: true });
+  const client = new OpenAI({ apiKey: key, baseURL: BASE_URLS[provider], dangerouslyAllowBrowser: true, defaultHeaders: provider === 'openrouter' ? { 'HTTP-Referer': location.origin + location.pathname, 'X-Title': 'WallerSketch' } : undefined });
   try {
     const res = await client.chat.completions.create({
       model: r.model || MODELS[provider],
@@ -148,6 +150,8 @@ async function ask(r: Parameters<Native['assistantAsk']>[0]): Promise<string> {
     const status = (e as { status?: number }).status;
     if (status === 401) throw new Error(`Clé API ${NAMES[provider]} refusée.`);
     if (status === 402) throw new Error(`Crédit ${NAMES[provider]} épuisé : rechargez le compte sur le site du fournisseur.`);
+    if (status === 429) throw new Error(provider === 'openrouter' ? 'Ce modèle gratuit est très demandé en ce moment : réessayez dans une minute ou choisissez-en un autre.' : 'Limite de requêtes atteinte, réessayez dans un instant.');
+    if (status === 404 && provider === 'openrouter') throw new Error('Ce modèle n’est plus proposé par OpenRouter : choisissez-en un autre dans la liste.');
     throw new Error(`Erreur de l’API ${NAMES[provider]} : ` + ((e as Error).message ?? e));
   }
 }
@@ -215,5 +219,6 @@ export function webNative(): Native {
     },
     convertCAD: unavailable as () => Promise<CADMesh[]>,
     assistantAsk: ask,
+    async assistantModels(provider) { if (provider !== 'openrouter') return null; const r = await fetch(OPENROUTER_MODELS_URL); if (!r.ok) throw new Error('Liste des modèles OpenRouter indisponible (' + r.status + ').'); return r.json(); },
   };
 }

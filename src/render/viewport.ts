@@ -85,7 +85,7 @@ export class Viewport {
   private ghost = new THREE.Group();
   private ghostMat = new THREE.MeshBasicMaterial({ color: '#1f6feb', transparent: true, opacity: 0.28, depthWrite: false });
   private ring: THREE.Group;
-  private pointer?: { id: number; x: number; y: number; mode: 'pending' | 'move' | 'rotate' | 'orbit' | 'box'; ids: string[]; anchor: THREE.Vector3; plane: THREE.Plane; last: Vec3; start: number; pivot: Vec3; startAngle: number; lastYaw: number; additive: boolean; toggle?: string };
+  private pointer?: { id: number; x: number; y: number; mode: 'pending' | 'move' | 'rotate' | 'orbit' | 'box' | 'spin'; ids: string[]; anchor: THREE.Vector3; plane: THREE.Plane; last: Vec3; start: number; pivot: Vec3; startAngle: number; lastYaw: number; additive: boolean; toggle?: string };
   private anim?: { from: [THREE.Vector3, THREE.Vector3]; to: [THREE.Vector3, THREE.Vector3]; t0: number; ms: number };
   private size = { w: 1, h: 1 };
   helpersVisible = true;
@@ -200,7 +200,7 @@ export class Viewport {
     }
     const orbiting = this.controls.update();
     if (orbiting) this.needsRender = true;
-    this.adaptResolution(orbiting || !!this.anim || this.pointer?.mode === 'move' || this.pointer?.mode === 'rotate');
+    this.adaptResolution(orbiting || !!this.anim || this.pointer?.mode === 'move' || this.pointer?.mode === 'rotate' || this.pointer?.mode === 'spin');
     if (!this.needsRender) return;
     this.needsRender = false;
     // Fog only blends the far floor into the background, whatever the camera distance.
@@ -935,6 +935,60 @@ export class Viewport {
     return best;
   }
 
+  // ------------------------------------------------------------------ free rotation
+
+  /**
+   * Free rotation: the selection turns with the pointer around its centre, no button held.
+   * By 15° steps (Alt: free). A click validates, Escape or a right click puts it back. On a
+   * touch screen: drag anywhere, lift to validate.
+   */
+  private spinLabel = Object.assign(document.createElement('div'), { className: 'spin-label' });
+  get spinning() { return this.pointer?.mode === 'spin'; }
+
+  startSpin(): boolean {
+    if (this.pointer) return false;
+    const ids = this.selection.filter(id => !this.entries.get(id)?.item.locked);
+    if (!ids.length) return false;
+    const b = this.contentBounds(ids), c = b.getCenter(new THREE.Vector3());
+    this.pointer = { id: -1, x: 0, y: 0, mode: 'spin', ids, anchor: new THREE.Vector3(), plane: new THREE.Plane(), last: [0, 0, 0], start: performance.now(), pivot: [c.x, b.min.y, c.z], startAngle: NaN, lastYaw: 0, additive: false };
+    this.controls.enabled = false;
+    this.host.classList.add('spinning');
+    this.showSpinLabel(null);
+    return true;
+  }
+
+  /** Ends the free rotation: kept (`commit`) or put back. */
+  endSpin(commit: boolean) {
+    const p = this.pointer;
+    if (p?.mode !== 'spin') return;
+    this.pointer = undefined;
+    this.controls.enabled = true;
+    this.host.classList.remove('spinning');
+    this.spinLabel.remove();
+    // Cancelling turns back inside the same undo step, so nothing is left to undo.
+    this.events.rotate(p.ids, commit || !p.lastYaw ? 0 : -p.lastYaw, p.pivot, true);
+    this.invalidate();
+  }
+
+  private spinTo(e: PointerEvent) {
+    const p = this.pointer!;
+    const ang = this.pointerAngle(e.clientX, e.clientY, new THREE.Vector3(...p.pivot));
+    // The first position seen is the reference, so the object never jumps when the mode starts.
+    if (Number.isNaN(p.startAngle)) p.startAngle = ang - p.lastYaw;
+    this.dragRotate(e, p, false);
+    this.showSpinLabel(e);
+  }
+
+  private showSpinLabel(e: PointerEvent | null) {
+    const p = this.pointer;
+    if (!p) return;
+    const r = this.host.getBoundingClientRect(), deg = Math.round((-p.lastYaw * 180) / Math.PI);
+    this.spinLabel.textContent = `${deg > 0 ? '+' : ''}${deg}° · ${this.coarse ? 'relâchez pour valider' : 'clic pour valider, Échap pour annuler'}`;
+    if (!this.spinLabel.isConnected) this.host.append(this.spinLabel);
+    const x = e ? e.clientX - r.left : r.width / 2, y = e ? e.clientY - r.top : r.height / 2;
+    Object.assign(this.spinLabel.style, { left: x + 16 + 'px', top: y + 16 + 'px' });
+  }
+
   private bindPointer() {
     const el = this.renderer.domElement;
     // Touch: a long press opens the context menu (there is no right click on a tablet).
@@ -956,6 +1010,14 @@ export class Viewport {
     el.addEventListener('pointerup', cancelPress);
     el.addEventListener('pointercancel', cancelPress);
     el.addEventListener('pointerdown', e => {
+      if (this.pointer?.mode === 'spin') {
+        // The click belongs to the rotation: no selection change, no context menu after it.
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (e.button === 2) { this.endSpin(false); return; }
+        if (e.pointerType === 'touch') { const p = this.pointer; p.id = e.pointerId; p.startAngle = NaN; this.spinTo(e); return; }
+        if (e.button === 0) { this.spinTo(e); this.endSpin(true); }
+        return;
+      }
       if (e.button !== 0 || this.pointer || this.panMode) return;
       el.focus();
       this.anim = undefined;
@@ -1016,6 +1078,7 @@ export class Viewport {
         if (id !== this.hovered) { this.hovered = id; this.events.hover(id); el.style.cursor = id ? 'pointer' : ''; this.invalidate(); }
         return;
       }
+      if (p.mode === 'spin') { if (e.pointerType !== 'touch' || p.id === e.pointerId) this.spinTo(e); return; }
       if (p.id !== e.pointerId) return;
       if (p.mode === 'pending' && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 4) { p.mode = 'move'; this.hovered = null; }
       if (p.mode === 'move') this.dragMove(e.clientX, e.clientY, p, false, e.altKey);
@@ -1024,6 +1087,7 @@ export class Viewport {
     });
     const end = (e: PointerEvent) => {
       const p = this.pointer;
+      if (p?.mode === 'spin') { if (e.pointerType === 'touch' && p.id === e.pointerId) this.endSpin(true); return; }
       if (!p || p.id !== e.pointerId) return;
       this.pointer = undefined;
       this.controls.enabled = true;

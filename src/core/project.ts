@@ -1,6 +1,6 @@
 // Project file (de)serialisation, validation and migration. A project is self-contained JSON:
 // imported models and textures are embedded so the file opens on any computer.
-import type { Arrangement, CameraView, DocState, EmbeddedAsset, Finish, Item, ItemType, ProjectFile, Vec3 } from './types';
+import type { Arrangement, CameraView, DocState, EmbeddedAsset, Finish, Item, ItemType, Logo, ProjectFile, Vec3 } from './types';
 import { DEFAULT_SCENE } from './document';
 import { catalogEntry } from './catalog';
 import { clampSize, newId } from './scene';
@@ -15,7 +15,9 @@ export function referencedAssets(state: DocState): Set<string> {
   const visit = (i: Item) => {
     if (i.type === 'model') out.add(i.ref);
     for (const f of Object.values(i.finish)) if (f.texture?.startsWith('asset:')) out.add(f.texture.slice(6));
+    if (i.picture) out.add(i.picture.asset);
   };
+  if (state.scene.logo) out.add(state.scene.logo.asset);
   state.items.forEach(visit);
   state.arrangements.forEach(a => a.items.forEach(visit));
   return out;
@@ -78,6 +80,10 @@ function item(raw: any): Item {
   if (raw.support === true) i.support = true;
   if (isNum(raw.steps)) i.steps = Math.min(8, Math.max(2, raw.steps | 0));
   if (Array.isArray(raw.tilt) && raw.tilt.length === 2 && raw.tilt.every(isNum)) i.tilt = [raw.tilt[0] | 0, raw.tilt[1] | 0];
+  const pic = raw.picture;
+  if (pic && typeof pic.asset === 'string' && isNum(pic.width) && isNum(pic.aspect) && pic.aspect > 0) {
+    i.picture = { asset: pic.asset.slice(0, 64), fit: pic.fit === 'tile' ? 'tile' : 'center', width: Math.min(10, Math.max(0.02, pic.width)), aspect: Math.min(20, Math.max(0.05, pic.aspect)) };
+  }
   if (raw.drink && typeof raw.drink === 'object') {
     const d = raw.drink;
     i.drink = {
@@ -137,10 +143,15 @@ export function parseProject(text: string): LoadedProject {
     state: {
       name: str(raw.name, 120) || 'Sans titre', items, arrangements,
       views: list(raw.views, LIMITS.views, 'vues').map(view),
-      scene: { ambiance: ['studio', 'warm', 'evening'].includes(s.ambiance) ? s.ambiance : 'studio', floor: colour(s.floor, DEFAULT_SCENE.floor), background: colour(s.background, DEFAULT_SCENE.background) },
+      scene: { ambiance: ['studio', 'warm', 'evening'].includes(s.ambiance) ? s.ambiance : 'studio', floor: colour(s.floor, DEFAULT_SCENE.floor), background: colour(s.background, DEFAULT_SCENE.background), ...logo(s.logo) },
     },
     assets: list(raw.assets, LIMITS.assets, 'ressources').map(asset),
   };
+}
+
+function logo(raw: any): { logo?: Logo } {
+  if (!raw || typeof raw.asset !== 'string' || !isNum(raw.size) || !isNum(raw.aspect) || raw.aspect <= 0) return {};
+  return { logo: { asset: raw.asset.slice(0, 64), corner: ['tl', 'tr', 'bl', 'br'].includes(raw.corner) ? raw.corner : 'br', size: Math.min(0.5, Math.max(0.03, raw.size)), aspect: Math.min(20, Math.max(0.05, raw.aspect)) } };
 }
 
 export const isInvalidProject = (e: unknown) => e instanceof Invalid;

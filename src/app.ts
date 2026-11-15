@@ -18,6 +18,7 @@ import { openDrinkBuilder } from './ui/drinkBuilder';
 import { openArrange, selectionBar } from './ui/selectionBar';
 import { shortcutsSheet } from './ui/shortcuts';
 import { hintBar } from './ui/hints';
+import { logoOverlay, stampLogo } from './ui/logo';
 
 declare global { interface Window { native: Native; studio: unknown } }
 
@@ -156,7 +157,7 @@ const boxBtn = button('Sélection', { icon: 'marquee', title: 'Sélectionner en 
 viewsBar.append(h('div', { class: 'sep' }), boxBtn, snapBtn, h('div', { class: 'sep' }), button('Cadrer', { icon: 'frame', title: 'Cadrer la sélection ou tout (F)', onClick: () => ed.frameView((activeView ?? 'perspective')) }));
 stage.append(viewsBar);
 const hints = hintBar(ed);
-stage.append(hints);
+stage.append(hints, logoOverlay(ed));
 const selBar = selectionBar(ed, () => ed.frameView(activeView ?? 'perspective'));
 stage.append(selBar);
 function setView(name: ViewName) { activeView = name; ed.frameView(name); markViews(); }
@@ -229,7 +230,8 @@ function contextMenu(id: string | null, x: number, y: number) {
     { label: 'Couper', icon: 'cut', kbd: kbd('Mod+X'), run: () => { const j = ed.copy(true); if (j) window.native.copy(j).catch(() => {}); } },
     { label: 'Coller', icon: 'paste', kbd: kbd('Mod+V'), disabled: !ed.canPaste, run: () => ed.paste() },
     { label: 'Dupliquer', icon: 'duplicate', kbd: kbd('Mod+D'), run: () => ed.duplicate() },
-    { label: 'Pivoter de 90°', icon: 'rotate', kbd: 'R', run: () => ed.rotate(ed.selection, -Math.PI / 2) },
+    { label: 'Pivoter librement', icon: 'rotate', kbd: 'T', run: () => view.startSpin() },
+    { label: 'Pivoter de 90°', icon: 'rotate', run: () => ed.rotate(ed.selection, -Math.PI / 2) },
     { label: ed.selected.some(i => i.groupId) ? 'Dégrouper' : 'Grouper', icon: 'group', disabled: ed.selection.length < 2 && !ed.selected.some(i => i.groupId), run: () => (ed.selected.some(i => i.groupId) ? ed.ungroup() : ed.group()) },
     { label: ed.selected.every(i => i.locked) ? 'Déverrouiller' : 'Verrouiller', icon: 'lock', run: () => ed.toggleLock() },
     { label: 'Cadrer', icon: 'frame', kbd: 'F', run: () => ed.frameView(activeView ?? 'perspective') },
@@ -384,7 +386,7 @@ function exportDialog() {
     const files: { name: string; data: string }[] = [];
     go.disabled = true;
     try {
-      for (const v of views) if (chosen.has(v.id)) files.push({ name: `${ed.state.name} - ${v.name}`, data: view.capture(w, hgt, v) });
+      for (const v of views) if (chosen.has(v.id)) files.push({ name: `${ed.state.name} - ${v.name}`, data: await stampLogo(ed, view.capture(w, hgt, v)) });
       if (planBox.checked) files.push({ name: `${ed.state.name} - Plan coté`, data: planSVG(ed.state) });
     } catch (e) { toast(msg(e), 'error'); go.disabled = false; return; }
     close();
@@ -466,7 +468,7 @@ addEventListener('keydown', e => {
   const sel = ed.selection;
   switch (e.key) {
     case 'Delete': case 'Backspace': if (sel.length) { e.preventDefault(); ed.remove(); } break;
-    case 'Escape': if (ed.grid.active) { ed.cancelGrid(); ed.emit(); } else ed.setSelection([]); break;
+    case 'Escape': if (view.spinning) view.endSpin(false); else if (ed.grid.active) { ed.cancelGrid(); ed.emit(); } else ed.setSelection([]); break;
     case '?': shortcutsSheet(); break;
     case '+': case '=': view.zoomBy(0.8); break;
     case '-': case '_': view.zoomBy(1.25); break;
@@ -476,6 +478,7 @@ addEventListener('keydown', e => {
     case '3': setView('top'); break;
     case 'f': case 'F': ed.frameView(activeView ?? 'perspective'); break;
     case 'r': case 'R': if (sel.length) ed.rotate(sel, (e.shiftKey ? 1 : -1) * Math.PI / 12); break;
+    case 't': case 'T': if (sel.length) view.startSpin(); break;
     case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': {
       e.preventDefault();
       // Without a selection (or with Alt) the arrows move the camera: turn and tilt, or slide with Shift.

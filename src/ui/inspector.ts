@@ -6,7 +6,7 @@ import { FABRIC_COLORS, FABRIC_TEXTURES, GARNISH_LABELS, RISER_MAX_HEIGHT, SOLID
 import { GLASSES, customGlasses, glassSize } from '../core/glassware';
 import { openDrinkBuilder } from './drinkBuilder';
 import { fabricCovers, overhang } from '../core/fabric';
-import { gridRows, holdsLiquid, inventory } from '../core/scene';
+import { gridRows, holdsLiquid, inventory, takesPicture } from '../core/scene';
 import { layerEditor } from './layers';
 import { button, fmtCm, h, menu, numberField, section, segmented, swatches, toggle } from './dom';
 import { icon } from './icons';
@@ -36,7 +36,7 @@ export class Inspector {
   /** Rebuild when the kind of selection changes; otherwise refresh values in place. */
   private update() {
     const sel = this.ed.selected;
-    const sig = sel.map(i => i.id + i.type + i.ref + i.shape + (i.drink?.glass ?? '') + Object.keys(i.finish).join() + (i.finish.main?.texture ?? '') + (i.finish.top?.texture ?? '')).join('|') + (sel.length ? '' : 'scene:' + this.ed.state.items.length);
+    const sig = sel.map(i => i.id + i.type + i.ref + i.shape + (i.drink?.glass ?? '') + Object.keys(i.finish).join() + (i.finish.main?.texture ?? '') + (i.finish.top?.texture ?? '') + (i.picture?.fit ?? '')).join('|') + (sel.length ? '' : 'scene:' + this.ed.state.items.length + (this.ed.state.scene.logo ? 'logo' : ''));
     if (sig !== this.signature) {
       this.signature = sig;
       this.build(sel);
@@ -74,6 +74,7 @@ export class Inspector {
       section('Ambiance', amb),
       section('Fond', this.live(swatches(bgColors, () => ed.state.scene.background, (c, live) => ed.setScene({ background: c }, live ? 'bg' : undefined)))),
       section('Sol', this.live(swatches(floorColors, () => ed.state.scene.floor, (c, live) => ed.setScene({ floor: c }, live ? 'floor' : undefined)))),
+      this.logo(),
     ];
     const inv = inventory(ed.state.items);
     if (inv.length) {
@@ -122,8 +123,76 @@ export class Inspector {
     if (type) out.push(this.dimensions(sel, type));
     if (type === 'fabric') out.push(this.fabricLook(ids));
     else if (type) out.push(...this.parts(sel));
+    if (sel.every(takesPicture)) out.push(this.picture(sel));
     out.push(this.placement(sel));
     return out;
+  }
+
+  /** Logo in a corner of exported images and of the presentation. */
+  private logo(): HTMLElement {
+    const ed = this.ed, logo = ed.state.scene.logo;
+    if (!logo) {
+      return section('Logo', h('div', { class: 'stack' },
+        h('div', { class: 'hint' }, 'Votre logo dans un coin des images exportées et pendant la présentation.'),
+        button('Ajouter un logo…', { icon: 'image', class: 'outline wide', onClick: () => ed.addLogo() })));
+    }
+    const corner = this.live(segmented([{ value: 'tl', label: '↖', title: 'En haut à gauche' }, { value: 'tr', label: '↗', title: 'En haut à droite' }, { value: 'bl', label: '↙', title: 'En bas à gauche' }, { value: 'br', label: '↘', title: 'En bas à droite' }], () => ed.state.scene.logo?.corner ?? null, v => ed.setLogo({ corner: v as 'tl' | 'tr' | 'bl' | 'br' })));
+    const size = this.live(numberField('Taille', { unit: '%', get: () => ed.state.scene.logo?.size ?? null, set: (v, live) => ed.setLogo({ size: v }, live ? 'logo-size' : undefined), min: 3, max: 50, hint: 'En pourcentage de la largeur de l’image.' }));
+    return section('Logo', h('div', { class: 'stack' }, h('div', { class: 'num-label' }, 'Coin'), corner, size,
+      h('div', { style: 'display:flex;gap:6px' },
+        button('Changer', { icon: 'image', class: 'outline small', onClick: () => ed.addLogo() }),
+        button('Retirer', { class: 'small', onClick: () => ed.removeLogo() }))));
+  }
+
+  /** An image on the front: a poster or logo in the middle, or a pattern repeated over it. */
+  private picture(sel: Item[]): HTMLElement {
+    const ed = this.ed, ids = sel.map(i => i.id), pic = sel[0].picture;
+    if (!sel.every(i => i.picture)) {
+      return section('Image', h('div', { class: 'stack' },
+        h('div', { class: 'hint' }, 'Une affiche, un logo ou un motif sur la face avant.'),
+        button('Ajouter une image…', { icon: 'image', class: 'outline wide', onClick: () => ed.addPicture(ids) })));
+    }
+    const fit = this.live(segmented([{ value: 'center', label: 'Centrée' }, { value: 'tile', label: 'Répétée' }], () => same(ed.selected.map(i => i.picture?.fit)) ?? null, v => ed.setPicture(ids, { fit: v as 'center' | 'tile' })));
+    const width = this.live(numberField(pic!.fit === 'tile' ? 'Largeur d’un motif' : 'Largeur de l’image', {
+      get: () => same(ed.selected.map(i => i.picture?.width)) ?? null, set: (v, live) => ed.setPicture(ids, { width: v }, live ? 'picture-width' : undefined), min: 2, max: 1000,
+      hint: pic!.fit === 'tile' ? 'Le motif se répète sur toute la face, centré.' : 'Les proportions de l’image sont gardées.',
+    }));
+    return section('Image', h('div', { class: 'stack' }, fit, width,
+      h('div', { style: 'display:flex;gap:6px' },
+        button('Changer l’image', { icon: 'image', class: 'outline small', onClick: () => ed.addPicture(ids) }),
+        button('Retirer', { class: 'small', onClick: () => ed.removePicture(ids) }))));
+  }
+
+  /**
+   * Stepped presentoir, described as it is built: how many steps, how deep and how high each
+   * one is. Adding a step keeps the steps' size and grows the whole, within the 50 cm limit.
+   */
+  private steps(sel: Item[]): HTMLElement {
+    const ed = this.ed, ids = sel.map(i => i.id);
+    const n = (i: Item) => i.steps ?? 3;
+    const per = (axis: 1 | 2) => () => same(ed.selected.map(i => i.size[axis] / n(i)));
+    const setPer = (axis: 1 | 2) => (v: number, live: boolean) => ed.patch(ids, i => { const s = [...i.size] as Vec3; s[axis] = v * n(i); return { size: s }; }, live ? 'step' + axis : undefined);
+    const count = this.live(numberField('Marches', { unit: '', scale: 1, min: 2, max: 8, get: () => same(ed.selected.map(n)), set: v => {
+      const k = Math.round(v);
+      ed.patch(ids, i => ({ steps: k, size: [i.size[0], (i.size[1] / n(i)) * k, (i.size[2] / n(i)) * k] as Vec3 }));
+    } }));
+    const note = h('div', { class: 'note' });
+    const refresh = () => {
+      const i = ed.selected[0];
+      if (!i) return;
+      const capped = i.size[1] >= RISER_MAX_HEIGHT - 1e-6;
+      note.textContent = `En tout : ${fmtCm(i.size[0])} × ${fmtCm(i.size[2])} cm, ${fmtCm(i.size[1])} cm de haut.` + (capped ? ' 50 cm maximum : les marches ont été abaissées pour tenir.' : '');
+    };
+    refresh();
+    this.refreshers.push(refresh);
+    return section('Dimensions', h('div', { class: 'stack' },
+      h('div', { class: 'fields two' },
+        this.live(numberField('Longueur', { get: () => same(ed.selected.map(i => i.size[0])), set: (v, live) => ed.patch(ids, i => ({ size: [v, i.size[1], i.size[2]] as Vec3 }), live ? 'size0' : undefined), min: 10, max: 600 })),
+        count),
+      h('div', { class: 'fields two' },
+        this.live(numberField('Profondeur d’une marche', { get: per(2), set: setPer(2), min: 5, max: 60 })),
+        this.live(numberField('Hauteur d’une marche', { get: per(1), set: setPer(1), min: 2, max: 25 }))),
+      note));
   }
 
   private saveArrangement() {
@@ -142,6 +211,8 @@ export class Inspector {
     if (type === 'fabric') {
       if (round) fields.push(this.live(numberField('Diamètre', { get: get(0), set: set(0), min: 20, max: 600 })));
       else fields.push(this.live(numberField('Longueur', { get: get(0), set: set(0), min: 20, max: 1000 })), this.live(numberField('Largeur', { get: get(2), set: set(2), min: 20, max: 600 })));
+    } else if (type === 'riser' && sel.every(i => i.shape === 'tiers')) {
+      return this.steps(sel);
     } else {
       if (round) fields.push(this.live(numberField('Diamètre', { get: get(0), set: set(0), min: 2, max: 400 })));
       else fields.push(this.live(numberField(type === 'decor' ? 'Largeur' : 'Longueur', { get: get(0), set: set(0), min: 2, max: 600 })), this.live(numberField('Profondeur', { get: get(2), set: set(2), min: 2, max: 400 })));

@@ -86,10 +86,10 @@ export function numberField(label: string, opts: { get: () => number | null; set
   return { el: field, refresh: () => { if (document.activeElement !== input) show(); } };
 }
 
-export function segmented<T extends string>(options: { value: T; label: string; icon?: string }[], get: () => T | null, set: (v: T) => void) {
+export function segmented<T extends string>(options: { value: T; label: string; icon?: string; title?: string }[], get: () => T | null, set: (v: T) => void) {
   const el = h('div', { class: 'segmented', role: 'radiogroup' });
   const btns = options.map(o => {
-    const b = h('button', { type: 'button', role: 'radio', class: 'seg', onClick: () => { set(o.value); refresh(); } }, o.icon ? icon(o.icon, 16) : null, o.label);
+    const b = h('button', { type: 'button', role: 'radio', class: 'seg', title: o.title, 'aria-label': o.title, onClick: () => { set(o.value); refresh(); } }, o.icon ? icon(o.icon, 16) : null, o.label);
     el.append(b);
     return b;
   });

@@ -31,7 +31,7 @@ if (!web) {
     background_color: '#f4f2ee', theme_color: '#fbfaf8', description: 'Compositions de tables cocktail en 3D',
     icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }],
   }));
-  const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob: https://api.anthropic.com https://api.openai.com https://api.deepseek.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'";
+  const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob: https://api.anthropic.com https://api.openai.com https://api.deepseek.com https://openrouter.ai; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'";
   const html = (await readFile('src/index.html', 'utf8'))
     .replace('<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">')
     .replace('<link rel="stylesheet" href="style.css">', `<meta http-equiv="Content-Security-Policy" content="${csp}">

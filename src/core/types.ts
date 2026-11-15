@@ -39,6 +39,26 @@ export interface DrinkSpec {
   ice?: number;
 }
 
+/** An image on the front of a wall, arch, curtain or block presentoir. */
+export interface Picture {
+  asset: string;
+  /** One image in the middle, or tiles repeated to cover the whole front. */
+  fit: 'center' | 'tile';
+  /** Width of the image (centred) or of one tile, in metres. */
+  width: number;
+  /** Image width divided by height. */
+  aspect: number;
+}
+
+/** A logo stamped in a corner of exported images and of the presentation. */
+export interface Logo {
+  asset: string;
+  corner: 'tl' | 'tr' | 'bl' | 'br';
+  /** Width as a fraction of the image width. */
+  size: number;
+  aspect: number;
+}
+
 export interface Item {
   id: string;
   type: ItemType;
@@ -69,6 +89,7 @@ export interface Item {
   support?: boolean;
   /** Stepped presentoir: number of steps. Champagne tower: number of levels. */
   steps?: number;
+  picture?: Picture;
 }
 
 export interface CameraView {
@@ -101,6 +122,7 @@ export interface SceneSettings {
   ambiance: Ambiance;
   floor: string;
   background: string;
+  logo?: Logo;
 }
 
 export interface DocState {

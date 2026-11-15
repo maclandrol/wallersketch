@@ -21,7 +21,8 @@ A desktop app to plan cocktail tables in 3D. A barman friend asked me for it, to
 - Box selection, with align, distribute, arrange in rows and replace on many objects at once
 - Keyboard camera controls, copy and paste, and a shortcuts sheet (press ?)
 - Drink builder for your own cocktails
-- AI assistant (ChatGPT, DeepSeek or Claude) that creates assets from a description or a photo
+- AI assistant (ChatGPT, DeepSeek, Claude, or free models through OpenRouter) that creates assets from a description or a photo
+- Your own images on walls and decor, and your logo on exported images and in the presentation
 - Saved views, presentation mode, PNG export up to 4K
 - Dimensioned SVG plan with riser positions and a packing list
 - Import GLB, OBJ, STL, PLY, 3MF, DAE, FBX, STEP and IGES; export GLB, OBJ and USDZ

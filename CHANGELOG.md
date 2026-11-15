@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.4.0 (15 November 2026)
+
+- Images on objects: walls, the arch, the curtain, presentoirs and most decor take an image from their properties, centred at a chosen width or repeated as a pattern over the whole face. On round objects (vases, dispenser, ice bucket, candles, round presentoirs) the image wraps like a label.
+- Logo: an image in a chosen corner of every exported picture and of the presentation, sized as a share of the image width.
+- Free rotation: the rotate button in the selection bar, T, or Pivoter librement in the right-click menu turns the selection with the mouse, no button held, by 15° steps (Alt: free). The angle shows by the cursor; a click validates, Escape or a right click puts it back. On a tablet, drag and lift.
+- Stepped presentoirs are set by the step: number of steps (2 to 8), depth and height of one step. Adding a step keeps the steps' size and grows the presentoir within the 50 cm limit, with the overall size shown below. Glasses on the steps now follow any change instead of floating.
+- OpenRouter as an assistant with an API key, with its model list read live, a switch for free models only (on by default) and the free router as the default model.
+
 ## 2.3.0 (10 November 2026)
 
 - Moving glasses: a glass now stays under the pointer where it was grabbed instead of jumping behind it, a click just beside a glass picks it, and glasses snap by the centimetre and to their neighbours' edges rather than to the 5 cm grid.

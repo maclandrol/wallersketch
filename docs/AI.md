@@ -37,14 +37,23 @@ DeepSeek has no equivalent, so keep using the copied request there.
 
 In the **Clé API** tab, WallerSketch sends the request itself and reads the answer, so there is no copying. You can also attach a photo of a past installation or a mood board (not with DeepSeek, which doesn't read images).
 
-- Choose **ChatGPT (OpenAI)**, **DeepSeek** or **Claude (Anthropic)**.
-- Create a key on the provider's site (the **Créer une clé** link opens the right page): [OpenAI](https://platform.openai.com/api-keys), [DeepSeek](https://platform.deepseek.com/api_keys), [Anthropic](https://console.anthropic.com/settings/keys).
+- Choose **ChatGPT (OpenAI)**, **DeepSeek**, **Claude (Anthropic)** or **OpenRouter**.
+- Create a key on the provider's site (the **Créer une clé** link opens the right page): [OpenAI](https://platform.openai.com/api-keys), [DeepSeek](https://platform.deepseek.com/api_keys), [Anthropic](https://console.anthropic.com/settings/keys), [OpenRouter](https://openrouter.ai/settings/keys).
 - API use is paid per request and is separate from a ChatGPT Plus subscription. A request usually costs a few cents; DeepSeek is the cheapest.
 - Default models: `gpt-5`, `deepseek-chat` and `claude-opus-5-5`. You can type another model name.
 
+### OpenRouter, including free models
+
+[OpenRouter](https://openrouter.ai) gives access to hundreds of models with a single key, and some of them are free. The key itself is free to create.
+
+- With OpenRouter selected, the **Modèle** field suggests the current list of models, read live from OpenRouter, and says whether the chosen one is free and whether it reads photos.
+- **Modèles gratuits seulement** is on by default. The default model is then `openrouter/free`, which sends each request to a free model available at that moment.
+- Free models are slower at busy times and limited in requests per day. If one is unavailable, the app says so; pick another or try again a minute later.
+- Untick **Modèles gratuits seulement** to see paid models too, billed to your OpenRouter credit.
+
 What happens to your data:
 - On the desktop app, the key is encrypted with the system keychain (macOS Keychain, Windows DPAPI, Linux secret store). Only the desktop process reads it; the app window has no network access.
-- On the tablet version, the key is stored in the browser's storage on that device and sent only to the provider you chose.
+- On the tablet version, the key is stored in the browser's storage on that device and sent only to the provider you chose. The list of OpenRouter models is read from openrouter.ai without the key.
 - Each request sends your description, a summary of the composition, the recipe instructions and the photo if you attached one. Nothing is sent until you click **Créer**.
 - If recipes come back with problems, the app sends the errors back once so the model can fix them.
 

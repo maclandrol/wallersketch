@@ -7,7 +7,7 @@ import type { Finish, Item } from '../core/types';
 import * as M from './materials';
 import { cardTexture, citrusTexture, rng } from './textures';
 import { buildDrink } from './drinks';
-import { tierBoxes } from '../core/scene';
+import { pictureFace, takesPicture, tierBoxes } from '../core/scene';
 
 const geo = new Map<string, THREE.BufferGeometry>();
 const shared = (key: string, make: () => THREE.BufferGeometry) => geo.get(key) ?? geo.set(key, make()).get(key)!;
@@ -361,6 +361,74 @@ function iceBucket(i: Item): THREE.Group {
 }
 
 export function buildObject(i: Item): THREE.Group {
+  const g = buildBody(i);
+  if (i.picture && takesPicture(i)) { const p = pictureMesh(i); if (p) g.add(p); }
+  return g;
+}
+
+/**
+ * The picture on the object: on a flat front, one image centred or tiles covering the face with
+ * one tile in the middle (following the arch's outline); on a round body, a label wrapped
+ * around it facing the front, or a band of tiles all the way round.
+ */
+function pictureMesh(i: Item): THREE.Mesh | null {
+  const pic = i.picture!, face = pictureFace(i);
+  if (!face) return null;
+  if (face.kind === 'round') {
+    const r = face.r + 0.002;
+    if (pic.fit === 'center') {
+      let pw = Math.min(pic.width, Math.PI * 2 * r * 0.98), ph = pw / pic.aspect;
+      if (ph > face.h * 0.96) { ph = face.h * 0.96; pw = ph * pic.aspect; }
+      const m = M.picture(pic.asset);
+      if (!m) return null;
+      const arc = pw / r;
+      const o = mesh(shared(`pic-wrap-${k(r)}-${k(pw)}-${k(ph)}`, () => new THREE.CylinderGeometry(r, r, ph, 48, 1, true, -arc / 2, arc)), m, 'picture', false, true);
+      o.position.y = face.y + face.h / 2;
+      return o;
+    }
+    const rx = (Math.PI * 2 * r) / pic.width, ry = face.h / (pic.width / pic.aspect);
+    const m = M.picture(pic.asset, [rx, ry], [0.5 - rx / 2, 0.5 - ry / 2]);
+    if (!m) return null;
+    const o = mesh(shared(`pic-band-${k(r)}-${k(face.h)}`, () => new THREE.CylinderGeometry(r, r, face.h, 64, 1, true, -Math.PI, Math.PI * 2)), m, 'picture', false, true);
+    o.position.y = face.y + face.h / 2;
+    return o;
+  }
+  const { w, h } = face, z = face.z + 0.003;
+  if (pic.fit === 'center') {
+    // Never wider or taller than the face (nor than the arch's straight part).
+    let pw = Math.min(pic.width, w * 0.98), ph = pw / pic.aspect;
+    const maxH = (face.arch ? h - w / 2 : h) * 0.96;
+    if (ph > maxH) { ph = maxH; pw = ph * pic.aspect; }
+    const m = M.picture(pic.asset);
+    if (!m) return null;
+    const cy = face.arch ? Math.min(h / 2, (h - w / 2) / 2 + 0.02) : face.y + h / 2;
+    const o = mesh(shared(`pic-${k(pw)}-${k(ph)}`, () => new THREE.PlaneGeometry(pw, ph)), m, 'picture', false, true);
+    o.position.set(0, cy, z);
+    return o;
+  }
+  const tw = pic.width, th = pic.width / pic.aspect;
+  if (face.arch) {
+    // Shape UVs are in metres: one tile centred on the arch.
+    const m = M.picture(pic.asset, [1 / tw, 1 / th], [0.5, 0.5 - h / 2 / th]);
+    if (!m) return null;
+    const geom = shared(`arch-face-${k(w)}-${k(h)}`, () => {
+      const s = new THREE.Shape(), r = w / 2;
+      s.moveTo(-r, 0); s.lineTo(r, 0); s.lineTo(r, h - r); s.absarc(0, h - r, r, 0, Math.PI, false); s.lineTo(-r, 0);
+      return new THREE.ShapeGeometry(s, 32);
+    });
+    const o = mesh(geom, m, 'picture', false, true);
+    o.position.z = z;
+    return o;
+  }
+  const rx = w / tw, ry = h / th;
+  const m = M.picture(pic.asset, [rx, ry], [0.5 - rx / 2, 0.5 - ry / 2]);
+  if (!m) return null;
+  const o = mesh(shared(`pic-${k(w)}-${k(h)}`, () => new THREE.PlaneGeometry(w, h)), m, 'picture', false, true);
+  o.position.set(0, face.y + h / 2, z);
+  return o;
+}
+
+function buildBody(i: Item): THREE.Group {
   switch (i.type) {
     case 'table': return table(i);
     case 'riser': return riser(i);

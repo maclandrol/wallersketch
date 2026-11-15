@@ -28,5 +28,6 @@ contextBridge.exposeInMainWorld('native', {
   assistantKeys: () => ipcRenderer.invoke('assistant:keys'),
   assistantSetKey: (provider, key) => ipcRenderer.invoke('assistant:setKey', provider, key),
   assistantAsk: request => ipcRenderer.invoke('assistant:ask', request),
+  assistantModels: provider => ipcRenderer.invoke('assistant:models', provider),
   convertCAD: (base64, ext) => ipcRenderer.invoke('cad:convert', base64, ext),
 });

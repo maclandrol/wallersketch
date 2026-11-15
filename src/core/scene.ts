@@ -148,6 +148,34 @@ export function footprintContains(i: Item, x: number, z: number, margin = 0): bo
   return Math.abs(lx) <= i.size[0] / 2 + margin && Math.abs(lz) <= i.size[2] / 2 + margin;
 }
 
+/**
+ * Where an object can show an image: a flat front (width, height, base, distance from the
+ * centre) or a round body (radius, height, base), in the object's own frame. Null for objects
+ * without such a surface (garland, candelabra, glass tower) and for signs, which have their own.
+ */
+export type PictureFace = { kind: 'flat'; w: number; h: number; y: number; z: number; arch?: boolean } | { kind: 'round'; r: number; h: number; y: number };
+export function pictureFace(i: Item): PictureFace | null {
+  const [w, h, d] = i.size;
+  if (i.type === 'riser') {
+    if (i.shape === 'round') return { kind: 'round', r: w / 2, h, y: 0 };
+    if (i.shape === 'tiers') { const front = tierBoxes(i.size, i.steps ?? 3).reduce((a, b) => (b.z + b.d / 2 > a.z + a.d / 2 ? b : a)); return { kind: 'flat', w: front.w, h: front.h, y: 0, z: front.z + front.d / 2 }; }
+    return !i.shape || i.shape === 'rect' ? { kind: 'flat', w, h, y: 0, z: d / 2 } : null;
+  }
+  if (i.type !== 'decor') return null;
+  switch (i.ref) {
+    case 'backdrop-wall': case 'backdrop-curtain': case 'napkin-box': return { kind: 'flat', w, h, y: 0, z: d / 2 };
+    case 'backdrop-arch': return { kind: 'flat', w, h, y: 0, z: d / 2, arch: true };
+    case 'dispenser': return { kind: 'round', r: w * 0.42, h: h * 0.62, y: h * 0.19 };
+    case 'ice-bucket': return { kind: 'round', r: w / 2 * 0.92, h: h * 0.7, y: h * 0.15 };
+    case 'candle': return { kind: 'round', r: w / 2, h: h * 0.8, y: h * 0.05 };
+    case 'straw-holder': return { kind: 'round', r: w / 2, h: h * 0.5, y: 0.004 };
+    case 'bouquet-hydrangea': case 'bouquet-peony': case 'bouquet-rose': return { kind: 'round', r: w * 0.3 * 0.97, h: h * 0.48 * 0.5, y: h * 0.48 * 0.17 };
+    case 'gypsophila': return { kind: 'round', r: w * 0.3 * 0.97, h: h * 0.5 * 0.5, y: h * 0.5 * 0.17 };
+  }
+  return null;
+}
+export const takesPicture = (i: Item) => pictureFace(i) !== null;
+
 export const isSupport = (i: Item) => i.type === 'table' || i.type === 'riser' || i.type === 'model';
 export const holdsLiquid = (i: Item) => i.type === 'glass' || i.type === 'cocktail';
 

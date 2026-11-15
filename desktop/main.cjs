@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const {MAX_PROJECT, MAX_IMPORT, projectText, readBounded, atomicWrite, validateImport, exportBytes, safeName} = require('./persistence.cjs');
 const {AgentServer, connectionInfo} = require('./agent.cjs');
-const {Keys, ask, DEFAULT_MODELS, PROVIDERS} = require('./assistant.cjs');
+const {Keys, ask, listModels, DEFAULT_MODELS, PROVIDERS} = require('./assistant.cjs');
 
 app.setName('WallerSketch');
 if (!app.isPackaged && process.env.WALLERSKETCH_USER_DATA && path.isAbsolute(process.env.WALLERSKETCH_USER_DATA)) {
@@ -208,7 +208,7 @@ app.whenReady().then(async () => {
   handle('clipboard:write', text => { if (typeof text === 'string' && text.length < 2_000_000) clipboard.writeText(text); });
   handle('clipboard:read', () => clipboard.readText().slice(0, 2_000_000));
   // Only the assistant sites and their API key pages open in the browser.
-  const EXTERNAL = new Set(['chatgpt.com', 'chat.deepseek.com', 'claude.ai', 'platform.openai.com', 'platform.deepseek.com', 'console.anthropic.com']);
+  const EXTERNAL = new Set(['chatgpt.com', 'chat.deepseek.com', 'claude.ai', 'platform.openai.com', 'platform.deepseek.com', 'console.anthropic.com', 'openrouter.ai']);
   handle('open:external', url => { const u = new URL(url); if (u.protocol === 'https:' && EXTERNAL.has(u.hostname)) shell.openExternal(u.toString()); });
 
   // Assistants. Local ones (MCP) go through a user-only socket, enabled by the operator.
@@ -236,10 +236,11 @@ app.whenReady().then(async () => {
   handle('agent:enable', async on => { settings.agentEnabled = on === true; on === true ? agent.start() : agent.stop(); await saveSettings(); return settings.agentEnabled; });
   app.on('before-quit', () => agent.stop());
 
-  // Remote assistants (Claude, OpenAI) with the operator's key, encrypted by the OS keychain.
+  // Remote assistants (Claude, OpenAI, DeepSeek, OpenRouter) with the operator's key, encrypted by the OS keychain.
   const keys = new Keys(app.getPath('userData'));
   handle('assistant:keys', () => ({...keys.status(), models: DEFAULT_MODELS, chosen: settings.assistant ?? {}}));
   handle('assistant:setKey', (provider, key) => { keys.set(provider, key); return keys.status(); });
+  handle('assistant:models', provider => listModels(provider));
   handle('assistant:ask', async request => {
     if (!request || !PROVIDERS.includes(request.provider) || !Array.isArray(request.messages) || typeof request.system !== 'string') throw Error('Requête invalide.');
     settings.assistant = {provider: request.provider, model: request.model || undefined};
